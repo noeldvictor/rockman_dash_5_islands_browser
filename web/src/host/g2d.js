@@ -238,6 +238,7 @@ export class G2D {
     const by = y + this.oy;
     for (const ch of s) {
       const code = ch.codePointAt(0);
+      if (code < 0x20) continue; // the game's strings carry trailing NULs; they have no glyph
       const cell = code < 0x100 || (code >= 0xff61 && code <= 0xff9f) ? half : this.fontPx;
       if (code !== 0x20) ctx.fillText(ch, cx + cell / 2, by, cell);
       cx += cell;

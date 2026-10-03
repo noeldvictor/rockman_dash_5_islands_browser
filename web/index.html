@@ -22,6 +22,19 @@
     #soft { display: flex; justify-content: space-between; width: min(100vw, calc(100vh - 56px));
       box-sizing: border-box; padding: .35rem .75rem; color: #aab2c2; min-height: 1.4rem; }
     #help { color: #5f6779; font-size: .8rem; text-align: center; }
+    #touch { display: none; width: min(100vw, 30rem); box-sizing: border-box; padding: .5rem .75rem;
+      justify-content: space-between; align-items: center; touch-action: none; user-select: none;
+      -webkit-user-select: none; }
+    body.touch #touch { display: flex; }
+    body.touch #help { display: none; }
+    body.touch #screen, body.touch #soft { height: auto; width: min(100vw, calc(100vh - 15rem)); }
+    #touch .pad { display: grid; grid-template-columns: repeat(3, 3.4rem); grid-template-rows: repeat(3, 3.4rem);
+      gap: .25rem; }
+    #touch button { font: 600 .8rem system-ui, sans-serif; border-radius: .7rem; border: 1px solid #2f3747;
+      background: #171c27; color: #d7dce5; touch-action: none; }
+    #touch button.down { background: #33405a; }
+    #touch .mid { display: flex; flex-direction: column; gap: .4rem; }
+    #touch .mid button { padding: .5rem .6rem; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -36,6 +49,22 @@
   <div id="stage" hidden>
     <canvas id="screen" width="240" height="240"></canvas>
     <div id="soft"><span id="soft1"></span><span id="soft2"></span></div>
+    <div id="touch">
+      <div class="pad">
+        <span></span><button data-key="17">▲</button><span></span>
+        <button data-key="16">◀</button><button data-key="20">OK</button><button data-key="18">▶</button>
+        <span></span><button data-key="19">▼</button><span></span>
+      </div>
+      <div class="mid">
+        <button data-key="21">Soft 1</button>
+        <button data-key="22">Soft 2</button>
+      </div>
+      <div class="pad">
+        <span></span><button data-key="6">Special</button><span></span>
+        <button data-key="9">Buster</button><span></span><button data-key="3">Lock</button>
+        <span></span><button data-key="0">Jump</button><span></span>
+      </div>
+    </div>
     <div id="help">Arrows/WASD move · Enter select · Space jump · Z buster/confirm · C special · Shift lock-on · Q / E soft keys · 0–9 keypad · F2 original resolution</div>
   </div>
   <script type="module" src="/src/main.js"></script>

@@ -160,8 +160,9 @@ export class Primitive3D {
     const v = this.vertices;
     const t = this.texCoords;
     const tex = this.texture;
-    const tw = tex ? tex.width : 1;
-    const th = tex ? tex.height : 1;
+    // the engine maps texel coordinate (size - 1) to exactly 1.0
+    const tw = tex ? Math.max(1, tex.width - 1) : 1;
+    const th = tex ? Math.max(1, tex.height - 1) : 1;
     const colorMode = this.param & 0xc00;
     const order = perFace === 4 ? [0, 1, 2, 0, 2, 3] : [0, 1, 2];
     let o = 0;
@@ -181,8 +182,8 @@ export class Primitive3D {
         pos.array[o * 3 + 1] = v[i * 3 + 1];
         pos.array[o * 3 + 2] = v[i * 3 + 2];
         if (t) {
-          uv.array[o * 2] = (t[i * 2] + 0.5) / tw;
-          uv.array[o * 2 + 1] = (t[i * 2 + 1] + 0.5) / th;
+          uv.array[o * 2] = t[i * 2] / tw;
+          uv.array[o * 2 + 1] = t[i * 2 + 1] / th;
         }
         col.array[o * 3] = r;
         col.array[o * 3 + 1] = g;
@@ -198,7 +199,7 @@ export class Primitive3D {
       map: tex && t ? tex.get(colorKey) : null,
       colorKey: !!(tex && t) && colorKey,
       blend: this.blendMode,
-      alpha: this.transparency / 100,
+      alpha: Math.trunc((this.transparency * 255) / 100) / 255,
       vertexColors: true,
     });
     return mesh;
@@ -261,28 +262,26 @@ export class G3D {
   }
 
   #updateProjection() {
+    // The projection always spans the whole 240x240 surface (aspect 1); setClipRectFor3D only
+    // scissors. Verified against the phone engine (micro3d_d4.dll).
     const p = this.projection;
-    const [, , cw, ch] = this.clip;
     const e = this.camera.projectionMatrix.elements;
     e.fill(0);
     if (p.kind === 'parallel') {
-      // p.w x p.h world units fill the clip rectangle; depth range is generous and symmetric
-      const depth = 32768;
+      // p.w x p.h world units are visible across the surface; depth range 0..32768
+      const far = 32768;
       e[0] = 2 / p.w;
-      e[5] = -2 / p.h;
-      e[10] = 1 / depth;
+      e[5] = -2 / p.h; // view-space y points down the screen
+      e[10] = 2 / far;
+      e[14] = -1;
       e[15] = 1;
     } else {
-      let fx;
-      let fy;
-      if (p.kind === 'perspective') {
-        // `angle` is the horizontal field of view
-        fx = 1 / Math.tan((p.angle * Math.PI) / 360);
-        fy = (fx * cw) / ch;
-      } else {
-        fx = (2 * p.near) / p.w;
-        fy = (2 * p.near) / p.h;
-      }
+      // perspective: `angle` is the full vertical field of view; the frustum overload gives
+      // the size of the view window at the near plane
+      const fy = p.kind === 'perspective'
+        ? 1 / Math.tan((p.angle * Math.PI) / 360)
+        : (2 * p.near) / p.h;
+      const fx = p.kind === 'perspective' ? fy : (2 * p.near) / p.w;
       const { near, far } = p;
       e[0] = fx;
       e[5] = -fy; // view-space y points down the screen
@@ -302,9 +301,8 @@ export class G3D {
     const r = screen.renderer;
     const k = screen.scale;
     const [x, y, w, h] = this.clip;
-    const vy = (240 - y - h) * k;
-    r.setViewport(x * k, vy, w * k, h * k);
-    r.setScissor(x * k, vy, w * k, h * k);
+    r.setViewport(0, 0, 240 * k, 240 * k);
+    r.setScissor(x * k, (240 - y - h) * k, w * k, h * k);
     r.setScissorTest(true);
     r.clearDepth();
     this.#updateProjection();

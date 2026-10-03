@@ -82,10 +82,17 @@ public class Font {
         return c < 0x100 || (c >= 0xFF61 && c <= 0xFF9F);
     }
 
+    private int charWidth(char c) {
+        if (c < 0x20) {
+            return 0; // control characters (the game's strings carry trailing NULs) have no glyph
+        }
+        return isHalfWidth(c) ? px / 2 : px;
+    }
+
     public int stringWidth(String s) {
         int w = 0;
         for (int i = 0, n = s.length(); i < n; i++) {
-            w += isHalfWidth(s.charAt(i)) ? px / 2 : px;
+            w += charWidth(s.charAt(i));
         }
         return w;
     }
@@ -102,7 +109,7 @@ public class Font {
         int w = 0;
         int end = Math.min(s.length(), off + len);
         for (int i = off; i < end; i++) {
-            w += isHalfWidth(s.charAt(i)) ? px / 2 : px;
+            w += charWidth(s.charAt(i));
             if (w > width) {
                 return i;
             }

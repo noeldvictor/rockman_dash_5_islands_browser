@@ -84,7 +84,7 @@ class Group3D {
         const material = new THREE.MeshBasicMaterial({
           map,
           vertexColors: !!color,
-          side: THREE.DoubleSide,
+          side: m.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
           alphaTest: m.alphaThreshold > 0 ? m.alphaThreshold / 255 : 0,
           transparent: m.transparent,
           blending: m.blendMode === 'alphaAdd' ? THREE.AdditiveBlending : THREE.NormalBlending,

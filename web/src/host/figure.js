@@ -145,7 +145,7 @@ class Figure3D {
       }
       // per-polygon blend bits win; otherwise the figure-wide mode set by the game
       let blend = this.blendMode;
-      let alpha = this.transparency / 100;
+      let alpha = Math.min(1, this.transparency / 100.3 + 0.003); // engine: node alpha = t / 100.3
       if (b.blendMode === 1) {
         blend = BLEND_ALPHA;
         alpha *= 0.5;

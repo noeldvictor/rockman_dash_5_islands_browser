@@ -11,7 +11,10 @@ const params = new URLSearchParams(location.search);
 
 function fitScale(hires) {
   if (!hires) return 1;
-  const size = Math.min(window.innerWidth, window.innerHeight - 56) * (window.devicePixelRatio || 1);
+  // match the canvas' CSS size (see index.html) in device pixels
+  const css = $('screen').getBoundingClientRect().width
+    || Math.min(window.innerWidth, window.innerHeight - 56);
+  const size = css * (window.devicePixelRatio || 1);
   return Math.max(1, Math.min(8, Math.floor(size / 240)));
 }
 
@@ -44,6 +47,27 @@ async function start(variant) {
   });
 
   const input = new Input(window);
+  // on-screen buttons for touch devices
+  if (window.matchMedia('(pointer: coarse)').matches || params.has('touch')) {
+    document.body.classList.add('touch');
+  }
+  for (const button of document.querySelectorAll('#touch [data-key]')) {
+    const key = Number(button.dataset.key);
+    const source = `touch:${key}`;
+    const up = () => {
+      button.classList.remove('down');
+      input.release(key, source);
+    };
+    button.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      button.setPointerCapture(e.pointerId);
+      button.classList.add('down');
+      input.press(key, source);
+    });
+    button.addEventListener('pointerup', up);
+    button.addEventListener('pointercancel', up);
+    button.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
   const audio = new Audio();
   const net = new Net(resources);
 

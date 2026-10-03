@@ -82,17 +82,35 @@ obfuscated (`a`…`bt`).
 
 ## DoJa conventions that matter
 
+Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro3d_d4.dll`.
+
 - Display is 240x240. Fonts are fixed-pitch: `SIZE_TINY` = 12 px, `SIZE_SMALL` = 16 px (half-width
-  glyphs are size/2 wide); `drawString` y is the baseline.
+  glyphs are size/2 wide); `drawString` y is the baseline. Game strings carry trailing NULs, which
+  have no glyph and no width.
 - Key state is a bit mask by key code: 0–9 digits, 10 `*`, 11 `#`, 16 left, 17 up, 18 right,
-  19 down, 20 select, 21/22 soft keys.
+  19 down, 20 select, 21/22 soft keys. Default bindings (Options > Controls): jump 0, buster 9,
+  special weapon 6, lock-on 3.
 - `util3d.Transform` is a 4x4 **row-major** float matrix (translation in elements 3, 7, 11);
   every operation post-multiplies; angles are **degrees** everywhere (`FastMath` too).
+- The world is right-handed, **y up**. View space is right-handed with x right, **y down**, +z
+  forward: `lookAt(position, lookPoint, up)` builds `z = normalize(look - position)`,
+  `x = z × up`, `y = z × x` (DLL). The engine then applies diag(1,-1,-1) to reach GL camera space.
+- Projection always spans the whole 240x240 surface; `setClipRectFor3D` is only a scissor (DLL).
+  `setPerspectiveView(near, far, angle)`: angle = full vertical FOV. `setParallelView(w, h)`:
+  visible world units, depth 0..32768.
+- Each `flushBuffer` clears depth only and draws queued objects in call order with a Z-buffer;
+  blended geometry does not write depth (DLL).
+- Blend modes: 0 opaque, 32 `src·a + dst·(1−a)`, 64 `src·a + dst`. `setTransparency` takes
+  opacity in percent (100 = opaque) (DLL).
+- `Primitive`: vertex int 1 == 1.0 world unit; texture coords are texels divided by (size − 1);
+  colours 0xRRGGBB; never culled; flag 16 = colour key on palette index 0 (DLL).
+- Figures (MBAC) are drawn at 1/64 world unit per model unit — chosen by eye, not yet confirmed.
 - Game logic keeps positions in 20.12 fixed point and divides by 4096 before calling the 3D API.
-- `Primitive` vertex ints are world units, texture coords are texels, colours are 0xRRGGBB;
-  `setTransparency` takes opacity in percent (100 = opaque).
 - `Collision.isHit(shape, sphere, dest, true)` sweeps the sphere from its transform's translation
-  to the absolute point `dest` and reports the fraction travelled through `CollisionObserver`.
+  to the absolute point `dest` and reports the fraction travelled through `CollisionObserver`
+  (semantics inferred from how the game uses the result).
+- `new String(byte[])` decodes UTF-8 here but Shift_JIS on the phone. The English patch's data is
+  ASCII, so this only matters if Japanese data files are ever shown.
 
 ## Rendering model
 
@@ -105,6 +123,11 @@ fresh depth buffer, so 2D/3D ordering matches the phone. Surfaces are `scale`× 
 
 Keep this section current.
 
-- Working: recompilation, boot, 2D UI, storage, input (keyboard + gamepad).
-- In progress: 3D (maps, character models), the stand-in game server.
-- Not started: sound (MFi), touch controls.
+- Working: recompilation of both variants, boot, title/menus, save loading from the dumped
+  scratchpad, SD-card island data, 2D UI and dialogue, 3D maps, character models and animation,
+  effects, collision, keyboard/gamepad/touch input, save persistence (IndexedDB), the game-server
+  stand-in, hi-res and original-resolution modes (F2).
+- In progress: sound (MFi).
+- Known gaps: lighting/specular flags on models are ignored (drawn unlit); point/line/point-sprite
+  primitives are not drawn; `Group` blend/transparency overrides are not implemented (the game
+  never uses them); the game runs at its native 15 fps logic rate.
