@@ -7,11 +7,24 @@ export const KEY = {
   LEFT: 16, UP: 17, RIGHT: 18, DOWN: 19, SELECT: 20, SOFT1: 21, SOFT2: 22,
 };
 
+// The game's default bindings (Options > Controls): Jump = 0, Buster/Confirm = 9,
+// Special Weapon = 6, Lock-On = 3. Besides the raw keypad, the keyboard and gamepad get
+// comfortable aliases for those four.
+const JUMP = KEY.NUM0;
+const BUSTER = KEY.NUM9;
+const SPECIAL = KEY.NUM6;
+const LOCK_ON = KEY.NUM3;
+
 // KeyboardEvent.code -> phone key
 const KEYBOARD = {
   ArrowLeft: KEY.LEFT, ArrowUp: KEY.UP, ArrowRight: KEY.RIGHT, ArrowDown: KEY.DOWN,
-  Enter: KEY.SELECT, Space: KEY.SELECT, KeyZ: KEY.SELECT,
-  KeyQ: KEY.SOFT1, KeyE: KEY.SOFT2, Escape: KEY.SOFT2, Backspace: KEY.SOFT1,
+  KeyA: KEY.LEFT, KeyW: KEY.UP, KeyD: KEY.RIGHT, KeyS: KEY.DOWN,
+  Enter: KEY.SELECT, NumpadEnter: KEY.SELECT,
+  Space: JUMP, KeyX: JUMP,
+  KeyZ: BUSTER, KeyJ: BUSTER,
+  KeyC: SPECIAL, KeyK: SPECIAL,
+  ShiftLeft: LOCK_ON, ShiftRight: LOCK_ON, KeyV: LOCK_ON, KeyL: LOCK_ON,
+  KeyQ: KEY.SOFT1, Backspace: KEY.SOFT1, KeyE: KEY.SOFT2, Escape: KEY.SOFT2,
   Digit0: KEY.NUM0, Digit1: KEY.NUM1, Digit2: KEY.NUM2, Digit3: KEY.NUM3, Digit4: KEY.NUM4,
   Digit5: KEY.NUM5, Digit6: KEY.NUM6, Digit7: KEY.NUM7, Digit8: KEY.NUM8, Digit9: KEY.NUM9,
   Numpad0: KEY.NUM0, Numpad1: KEY.NUM1, Numpad2: KEY.NUM2, Numpad3: KEY.NUM3, Numpad4: KEY.NUM4,
@@ -22,7 +35,8 @@ const KEYBOARD = {
 // Standard-mapping gamepad button index -> phone key
 const GAMEPAD = {
   12: KEY.UP, 13: KEY.DOWN, 14: KEY.LEFT, 15: KEY.RIGHT,
-  0: KEY.SELECT, 9: KEY.SOFT2, 8: KEY.SOFT1,
+  0: JUMP, 2: BUSTER, 3: SPECIAL, 5: LOCK_ON, 7: LOCK_ON,
+  1: KEY.SELECT, 9: KEY.SELECT, 4: KEY.SOFT1, 8: KEY.SOFT2,
 };
 
 export class Input {

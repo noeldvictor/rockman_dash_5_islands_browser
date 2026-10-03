@@ -45,7 +45,7 @@ async function start(variant) {
 
   const input = new Input(window);
   const audio = new Audio();
-  const net = new Net();
+  const net = new Net(resources);
 
   globalThis.DOJA = {
     res: resources,

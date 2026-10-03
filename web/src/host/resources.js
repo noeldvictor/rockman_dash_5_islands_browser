@@ -79,7 +79,10 @@ export class Resources {
     res.jam = parseJam(files[1]);
     res.#initScratchpad(files[2]);
     // FAT names are case-insensitive: the dump is upper-case, the game asks for lower-case
-    sdNames.forEach((n, i) => res.sd.set(n.toLowerCase(), files[3 + i]));
+    sdNames.forEach((n, i) => {
+      res.sd.set(n.toLowerCase(), files[3 + i]);
+      res.shipped.set(n.toLowerCase(), files[3 + i]);
+    });
 
     try {
       res.db = await openDB();
@@ -104,6 +107,8 @@ export class Resources {
   segments = [];
   /** @type {Map<string, Uint8Array>} */
   sd = new Map();
+  /** SD-card files as shipped (what the game server used to hand out); never modified */
+  shipped = new Map();
   db = null;
 
   #initScratchpad(sp) {
