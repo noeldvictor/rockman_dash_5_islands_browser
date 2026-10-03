@@ -183,13 +183,13 @@ public class Transform {
     /**
      * Sets this to the view matrix of a camera at {@code position} looking at the point
      * {@code look}, with {@code up} the upward direction. View space is the engine's
-     * right-handed x right, y down, +z forward.
+     * right-handed x right, y down, +z forward. Like the phone, degenerate input throws.
      */
     public void lookAt(Vector3D position, Vector3D look, Vector3D up) {
         float zx = look.x - position.x, zy = look.y - position.y, zz = look.z - position.z;
         float zl = (float) Math.sqrt(zx * zx + zy * zy + zz * zz);
-        if (zl == 0f) {
-            return;
+        if (zl == 0f || (up.x == 0f && up.y == 0f && up.z == 0f)) {
+            throw new IllegalArgumentException("lookAt: zero direction or up vector");
         }
         zx /= zl;
         zy /= zl;
@@ -198,7 +198,7 @@ public class Transform {
         float xx = zy * up.z - zz * up.y, xy = zz * up.x - zx * up.z, xz = zx * up.y - zy * up.x;
         float xl = (float) Math.sqrt(xx * xx + xy * xy + xz * xz);
         if (xl == 0f) {
-            return;
+            throw new IllegalArgumentException("lookAt: up is parallel to the view direction");
         }
         xx /= xl;
         xy /= xl;

@@ -9,3 +9,7 @@
 # the Windows launcher/emulator bundle the game was distributed with (not needed by the port)
 /rockmanlegendsof5islands.zip
 /rockmanlegendsof5islands/
+
+# Mega Man Legends 2 disc image (source for optional asset replacement; never committed)
+/*.chd
+/build/

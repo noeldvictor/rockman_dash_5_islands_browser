@@ -107,6 +107,8 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
 - The world is right-handed, **y up**. View space is right-handed with x right, **y down**, +z
   forward: `lookAt(position, lookPoint, up)` builds `z = normalize(look - position)`,
   `x = z × up`, `y = z × x` (DLL). The engine then applies diag(1,-1,-1) to reach GL camera space.
+- `Vector3D.normalize()` throws `ArithmeticException` on a zero vector and `lookAt` throws on
+  degenerate input; the game catches these on purpose (e.g. the top-down Map camera).
 - Projection always spans the whole 240x240 surface; `setClipRectFor3D` is only a scissor (DLL).
   `setPerspectiveView(near, far, angle)`: angle = full vertical FOV. `setParallelView(w, h)`:
   visible world units, depth 0..32768.

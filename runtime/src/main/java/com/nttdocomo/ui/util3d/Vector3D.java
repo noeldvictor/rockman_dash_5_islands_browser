@@ -64,13 +64,18 @@ public class Vector3D {
         return z;
     }
 
+    /**
+     * @throws ArithmeticException for a zero-length vector. The game depends on this: its camera
+     *         code catches it to pick another up axis when looking straight up or down.
+     */
     public void normalize() {
         float len = (float) Math.sqrt(x * x + y * y + z * z);
-        if (len > 0f) {
-            x /= len;
-            y /= len;
-            z /= len;
+        if (len == 0f) {
+            throw new ArithmeticException("zero-length vector");
         }
+        x /= len;
+        y /= len;
+        z /= len;
     }
 
     public float dot(Vector3D v) {
