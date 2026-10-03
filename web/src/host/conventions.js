@@ -12,10 +12,8 @@ import * as THREE from 'three';
 export const MODEL_FLIP = new THREE.Matrix4();
 
 /**
- * World units per MBAC model unit. Models are stored in integers (the player is 186 units tall)
- * while map geometry and the game's float transforms use units where a room is 24-60 high.
- * ASSUMED from proportions (player shadow and marker quads are ~2 units wide); not yet confirmed
- * against the engine.
+ * World units per MBAC model unit: the engine post-multiplies every figure's model matrix by
+ * scale(1/64) (confirmed in micro3d_d4.dll). Maps and Primitives are not scaled.
  */
 export const FIGURE_SCALE = 1 / 64;
 

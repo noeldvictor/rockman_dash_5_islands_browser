@@ -7,7 +7,7 @@ APIs on three.js. No emulator.
 ## How it works
 
 ```
-original/<variant>/RockmanDASH.jar ──┐
+original/<variant>/RockmanDASH.jar ──┐ (via tools/patch_jar.py)
 runtime/src/main/java (our DoJa API) ─┴─ TeaVM ──► web/public/game/<variant>/game.js
                                                         │ calls globalThis.DOJA.*
 web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──┘
@@ -21,6 +21,10 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
   `web/src/main.js` assembles before importing `game.js`.
 - **The game thread** is a TeaVM coroutine. `Graphics.unlock(true)` presents the frame and then
   suspends until `requestAnimationFrame`; the game paces itself to 15 fps with `Thread.sleep`.
+- **One build-time bytecode patch** (`tools/patch_jar.py`): the game's single `Thread.sleep` call
+  (its frame limiter) is redirected to `rdash.GameHooks.sleep`, which skips the wait while a
+  loading screen is showing. The host recognises loading screens by their "please do not
+  press/push any buttons" line (`g2d.js`), so loading takes seconds instead of ~25 s per area.
 - **Two variants** of the English patch (`localized`: MegaMan/Servbot/Reaverbot…, `delocalized`:
   Rock/Kobun/Reaverd…) differ in 3 classes and ~100 data files, so each is recompiled separately
   and picked on the start page (`?variant=` skips the menu).
@@ -32,7 +36,8 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 | `original/` | Game inputs, committed: per-variant `.jar`/`.jam`/`.sp` (scratchpad), `sdcard/RDDATA*.BIN` |
 | `runtime/` | Maven project: DoJa API reimplementation + TeaVM build (`./mvnw`, JDK 11+) |
 | `web/` | Vite app. `src/host/` = host services, `src/formats/` = file-format parsers (no three.js imports) |
-| `tools/build.sh` | Recompile both variants and copy data into `web/public/` |
+| `tools/build.sh` | Patch + recompile both variants and copy data into `web/public/` |
+| `tools/patch_jar.py` | Build-time redirect of the game's `Thread.sleep` to `rdash.GameHooks.sleep` (skips the 15 fps limiter while loading) |
 | `tools/extract_assets.py` | Unpack jar / scratchpad / SD data into `build/assets/` for inspection |
 | `tools/play.mjs` | Headless Chrome driver: key presses + screenshots (`build/shots/`) |
 | `tools/d4d/`, `tools/mbac/` | Dump/validate scripts for the 3D formats |
@@ -104,7 +109,8 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   opacity in percent (100 = opaque) (DLL).
 - `Primitive`: vertex int 1 == 1.0 world unit; texture coords are texels divided by (size − 1);
   colours 0xRRGGBB; never culled; flag 16 = colour key on palette index 0 (DLL).
-- Figures (MBAC) are drawn at 1/64 world unit per model unit — chosen by eye, not yet confirmed.
+- Figures (MBAC) are drawn at 1/64 world unit per model unit; their texture coords are texels
+  divided by the texture width on both axes; front faces are clockwise in the file (DLL).
 - Game logic keeps positions in 20.12 fixed point and divides by 4096 before calling the 3D API.
 - `Collision.isHit(shape, sphere, dest, true)` sweeps the sphere from its transform's translation
   to the absolute point `dest` and reports the fraction travelled through `CollisionObserver`

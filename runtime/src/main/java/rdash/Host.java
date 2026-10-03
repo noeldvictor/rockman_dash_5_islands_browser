@@ -59,6 +59,13 @@ public final class Host {
     @JSBody(params = {"msg"}, script = "globalThis.DOJA.app.log(msg);")
     public static native void log(String msg);
 
+    /**
+     * True while a loading screen is on display (the host recognises them by their "please do
+     * not press any buttons" line). Frame pacing is skipped then; see GameHooks.sleep.
+     */
+    @JSBody(script = "return performance.now() < globalThis.DOJA.loadingUntil;")
+    public static native boolean isLoading();
+
     @Async
     public static native void waitFrame();
 

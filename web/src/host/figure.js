@@ -75,8 +75,9 @@ class Figure3D {
       const src = this.model.batches[batchIndex].uvs; // texels, origin top-left
       const uv = new Float32Array(src.length);
       for (let i = 0; i < src.length; i += 2) {
+        // the engine divides both axes by the texture *width* (textures are square in practice)
         uv[i] = src[i] / tex.width;
-        uv[i + 1] = src[i + 1] / tex.height;
+        uv[i + 1] = src[i + 1] / tex.width;
       }
       attr = new THREE.BufferAttribute(uv, 2);
       this.uvCache.set(key, attr);
@@ -143,13 +144,14 @@ class Figure3D {
       } else if (this.colorAttributes[bi]) {
         g.setAttribute('color', this.colorAttributes[bi]);
       }
-      // per-polygon blend bits win; otherwise the figure-wide mode set by the game
+      // per-polygon blend bits (1 half, 2 add; the engine draws 3 = subtract as opaque) win;
+      // otherwise the figure-wide mode set by the game
       let blend = this.blendMode;
       let alpha = Math.min(1, this.transparency / 100.3 + 0.003); // engine: node alpha = t / 100.3
       if (b.blendMode === 1) {
         blend = BLEND_ALPHA;
         alpha *= 0.5;
-      } else if (b.blendMode === 2 || b.blendMode === 3) {
+      } else if (b.blendMode === 2) {
         blend = BLEND_ADD;
       } else if (blend === BLEND_NORMAL && alpha < 1) {
         blend = BLEND_ALPHA;

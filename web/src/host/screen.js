@@ -31,6 +31,7 @@ export class Screen {
     this.lockCount = 0;
     this.dirty2D = false;
     this.scale = 0;
+    this.frames = 0; // presented frames, for measuring the game's frame rate
 
     this.layer = makeCanvas(WIDTH, HEIGHT);
     this.layerTexture = new THREE.CanvasTexture(this.layer);
@@ -88,5 +89,6 @@ export class Screen {
   present() {
     this.g3d.flush();
     this.flush2D();
+    this.frames++;
   }
 }

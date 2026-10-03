@@ -8,9 +8,10 @@
   <packaging>jar</packaging>
 
   <!--
-    Statically recompiles the original game bytecode (original/<variant>/RockmanDASH.jar)
-    together with our DoJa API reimplementation (src/main/java) into one JavaScript module.
-    Build with: ./mvnw -q package -Dvariant=localized   (or delocalized)
+    Statically recompiles the game bytecode together with our DoJa API reimplementation
+    (src/main/java) into one JavaScript module. The input jar is build/patched/<variant>/,
+    produced from original/<variant>/RockmanDASH.jar by tools/patch_jar.py; use tools/build.sh,
+    which runs both steps.
   -->
   <properties>
     <variant>localized</variant>
@@ -45,7 +46,7 @@
       <artifactId>rockman-dash-5islands</artifactId>
       <version>1.0.2</version>
       <scope>system</scope>
-      <systemPath>${project.basedir}/../original/${variant}/RockmanDASH.jar</systemPath>
+      <systemPath>${project.basedir}/../build/patched/${variant}/RockmanDASH.jar</systemPath>
     </dependency>
   </dependencies>
 

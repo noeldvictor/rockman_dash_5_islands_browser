@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build everything the web app needs:
-#   1. recompile the game bytecode + our DoJa runtime to JavaScript (TeaVM), once per variant
+#   1. redirect the game's frame-limiter sleep (tools/patch_jar.py), then recompile the bytecode
+#      + our DoJa runtime to JavaScript (TeaVM), once per variant
 #   2. copy the original game data next to it
 # Usage: tools/build.sh [localized|delocalized ...]   (default: both)
 set -euo pipefail
@@ -11,6 +12,8 @@ variants=("$@")
 
 for v in "${variants[@]}"; do
   echo "== recompiling $v"
+  mkdir -p "build/patched/$v"
+  python3 tools/patch_jar.py "original/$v/RockmanDASH.jar" "build/patched/$v/RockmanDASH.jar"
   (cd runtime && ./mvnw -q -B package -Dvariant="$v")
   mkdir -p "web/public/data/$v"
   cp original/"$v"/RockmanDASH.{jar,jam,sp} "web/public/data/$v/"

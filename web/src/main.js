@@ -72,6 +72,9 @@ async function start(variant) {
   const net = new Net(resources);
 
   globalThis.DOJA = {
+    // performance.now() deadline: frame pacing is skipped until then (set while a loading
+    // screen is being drawn, read by rdash.GameHooks.sleep)
+    loadingUntil: 0,
     res: resources,
     input,
     audio,

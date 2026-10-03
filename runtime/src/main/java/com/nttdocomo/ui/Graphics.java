@@ -77,7 +77,8 @@ public class Graphics implements Graphics3D {
     }
 
     public void unlock(boolean forced) {
-        if (Host.gUnlock(js, forced)) {
+        // wait for the display's next frame, except on loading screens
+        if (Host.gUnlock(js, forced) && !Host.isLoading()) {
             Host.waitFrame();
         }
     }
