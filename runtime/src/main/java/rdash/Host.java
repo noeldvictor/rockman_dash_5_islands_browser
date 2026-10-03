@@ -44,6 +44,9 @@ public final class Host {
     @JSBody(params = {"h"}, script = "globalThis.DOJA.audio.handler = h;")
     private static native void setMediaHandler(MediaHandler h);
 
+    @JSBody(params = {"on"}, script = "globalThis.DOJA.input.vibrate(on);")
+    public static native void vibrate(boolean on);
+
     @JSBody(script = "return globalThis.DOJA.input.state();")
     public static native int keyState();
 

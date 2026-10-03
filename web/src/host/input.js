@@ -32,12 +32,29 @@ const KEYBOARD = {
   NumpadMultiply: KEY.ASTERISK, NumpadDivide: KEY.POUND, Minus: KEY.ASTERISK, Equal: KEY.POUND,
 };
 
-// Standard-mapping gamepad button index -> phone key
+// Standard-mapping gamepad button index -> phone key(s). Laid out like Mega Man Legends on a
+// PlayStation pad: Cross jump, Square buster, Triangle special weapon, Circle confirm, L1/R1 turn,
+// R2/L2 lock-on. A/Cross also confirms, since Select does nothing during play.
 const GAMEPAD = {
-  12: KEY.UP, 13: KEY.DOWN, 14: KEY.LEFT, 15: KEY.RIGHT,
-  0: JUMP, 2: BUSTER, 3: SPECIAL, 5: LOCK_ON, 7: LOCK_ON,
-  1: KEY.SELECT, 9: KEY.SELECT, 4: KEY.SOFT1, 8: KEY.SOFT2,
+  12: [KEY.UP], 13: [KEY.DOWN], 14: [KEY.LEFT], 15: [KEY.RIGHT],
+  0: [JUMP, KEY.SELECT], 1: [KEY.SELECT], 2: [BUSTER], 3: [SPECIAL],
+  4: [KEY.LEFT], 5: [KEY.RIGHT], 6: [LOCK_ON], 7: [LOCK_ON],
+  8: [KEY.SOFT1], 9: [KEY.SOFT2],
 };
+const STICK_DEADZONE = 0.45;
+
+/** Human-readable control reference, shown on the page. */
+export const CONTROLS = [
+  ['Move / turn', 'Arrows or WASD', 'D-pad or left stick; L1 / R1 turn'],
+  ['Jump', 'Space or X', 'A / Cross'],
+  ['Buster, confirm', 'Z or J', 'X / Square'],
+  ['Special weapon', 'C or K', 'Y / Triangle'],
+  ['Lock-on', 'Shift, V or L', 'R2 / L2'],
+  ['Select (menus, dialogue)', 'Enter', 'A / Cross or B / Circle'],
+  ['Left soft key (Map, Back)', 'Q or Backspace', 'Select / Share'],
+  ['Right soft key (Items)', 'E or Esc', 'Start / Options'],
+  ['Phone keypad 0-9 * #', '0-9, - and =', ''],
+];
 
 export class Input {
   /** Set by the game (rdash.Host): (type, key) => void */
@@ -45,6 +62,10 @@ export class Input {
   #state = 0;
   #sources = new Map(); // key -> Set of source ids holding it down
   #padDown = new Set();
+  #rumbling = false;
+  /** Called with the connected pad's name, or null when none is connected. */
+  onGamepadChange = null;
+  #padName = null;
 
   constructor(target = window) {
     target.addEventListener('keydown', (e) => {
@@ -60,6 +81,12 @@ export class Input {
       this.release(k, `kb:${e.code}`);
     });
     target.addEventListener('blur', () => this.releaseAll());
+    // Poll controllers every display frame, independently of the game's own frame rate.
+    const tick = () => {
+      this.pollGamepads();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   state() {
@@ -93,23 +120,56 @@ export class Input {
     this.#padDown.clear();
   }
 
-  /** Call once per frame. */
   pollGamepads() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const down = new Set();
+    let name = null;
     for (const pad of pads) {
-      if (!pad) continue;
-      for (const [index, key] of Object.entries(GAMEPAD)) {
-        if (pad.buttons[index]?.pressed) down.add(key);
+      if (!pad || !pad.connected) continue;
+      name ??= pad.id;
+      for (const [index, keys] of Object.entries(GAMEPAD)) {
+        const b = pad.buttons[index];
+        if (b && (b.pressed || b.value > 0.5)) for (const k of keys) down.add(k);
       }
-      const [x = 0, y = 0] = pad.axes;
-      if (x < -0.5) down.add(KEY.LEFT);
-      if (x > 0.5) down.add(KEY.RIGHT);
-      if (y < -0.5) down.add(KEY.UP);
-      if (y > 0.5) down.add(KEY.DOWN);
+      const [x = 0, y = 0, rx = 0] = pad.axes;
+      if (x < -STICK_DEADZONE || rx < -STICK_DEADZONE) down.add(KEY.LEFT);
+      if (x > STICK_DEADZONE || rx > STICK_DEADZONE) down.add(KEY.RIGHT);
+      if (y < -STICK_DEADZONE) down.add(KEY.UP);
+      if (y > STICK_DEADZONE) down.add(KEY.DOWN);
+    }
+    if (name !== this.#padName) {
+      this.#padName = name;
+      this.onGamepadChange?.(name);
     }
     for (const key of down) if (!this.#padDown.has(key)) this.press(key, 'pad');
     for (const key of this.#padDown) if (!down.has(key)) this.release(key, 'pad');
     this.#padDown = down;
+    if (this.#rumbling) this.#pulse();
+  }
+
+  /** The phone's vibrator (PhoneSystem DEV_VIBRATOR), mapped to controller rumble. */
+  vibrate(on) {
+    this.#rumbling = !!on;
+    if (on) {
+      this.#lastPulse = 0;
+      this.#pulse();
+      navigator.vibrate?.(400);
+    } else {
+      for (const pad of navigator.getGamepads?.() ?? []) pad?.vibrationActuator?.reset?.();
+      navigator.vibrate?.(0);
+    }
+  }
+
+  #lastPulse = 0;
+
+  #pulse() {
+    const now = performance.now();
+    if (now - this.#lastPulse < 150) return;
+    this.#lastPulse = now;
+    for (const pad of navigator.getGamepads?.() ?? []) {
+      pad?.vibrationActuator?.playEffect?.('dual-rumble', {
+        duration: 200, strongMagnitude: 0.7, weakMagnitude: 0.4,
+      })?.catch?.(() => {});
+    }
   }
 }

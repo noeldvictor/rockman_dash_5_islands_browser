@@ -2,7 +2,7 @@ import { Resources } from './host/resources.js';
 import { Screen } from './host/screen.js';
 import { Img } from './host/g2d.js';
 import { g3dFactory } from './host/g3d.js';
-import { Input } from './host/input.js';
+import { Input, CONTROLS } from './host/input.js';
 import { Audio } from './host/audio.js';
 import { Net } from './host/net.js';
 
@@ -88,13 +88,22 @@ async function start(variant) {
         $(key === 0 ? 'soft1' : 'soft2').textContent = label || '';
       },
       log: (msg) => console.info('[game]', msg),
-      onFrame: (cb) => requestAnimationFrame(() => {
-        input.pollGamepads();
-        cb();
-      }),
+      onFrame: (cb) => requestAnimationFrame(cb),
     },
     screenObject: screen,
   };
+
+  // controller indicator + controls reference
+  input.onGamepadChange = (name) => {
+    $('pad').textContent = name ? `Controller: ${name.replace(/\s*\(.*$/, '')}` : 'No controller detected (press a button on it)';
+    $('pad').classList.toggle('on', !!name);
+  };
+  input.onGamepadChange(null);
+  $('controls-body').innerHTML = CONTROLS
+    .map(([what, keys, pad]) => `<tr><td>${what}</td><td>${keys}</td><td>${pad}</td></tr>`).join('');
+  $('btn-controls').addEventListener('click', () => {
+    $('controls').hidden = !$('controls').hidden;
+  });
 
   // page controls
   let muted = localStorage.getItem('rdash.muted') === '1';

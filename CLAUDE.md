@@ -99,6 +99,9 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
 - Display is 240x240. Fonts are fixed-pitch: `SIZE_TINY` = 12 px, `SIZE_SMALL` = 16 px (half-width
   glyphs are size/2 wide); `drawString` y is the baseline. Game strings carry trailing NULs, which
   have no glyph and no width.
+- Controllers (Gamepad API, standard mapping) are polled every display frame in `input.js`:
+  A jump+confirm, X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on, Select/Start soft
+  keys, left stick = d-pad. The phone vibrator (`PhoneSystem` attribute 1) drives rumble.
 - Key state is a bit mask by key code: 0–9 digits, 10 `*`, 11 `#`, 16 left, 17 up, 18 right,
   19 down, 20 select, 21/22 soft keys. Default bindings (Options > Controls): jump 0, buster 9,
   special weapon 6, lock-on 3.

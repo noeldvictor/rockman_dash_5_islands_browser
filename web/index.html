@@ -28,13 +28,17 @@
     #bar button:hover { background: #222a3a; }
     #stage:fullscreen { background: #000; justify-content: center; height: 100%; }
     #stage:fullscreen #screen { height: min(100vw, calc(100vh - 3rem)); }
-    #stage:fullscreen #bar, #stage:fullscreen #help { display: none; }
+    #stage:fullscreen #bar, #stage:fullscreen #help, #stage:fullscreen #pad, #stage:fullscreen #controls { display: none; }
+    #pad { color: #5f6779; font-size: .8rem; }
+    #pad.on { color: #7fc28a; }
+    #controls { font-size: .8rem; color: #aab2c2; border-collapse: collapse; margin: .4rem 0; }
+    #controls th { text-align: left; color: #5f6779; font-weight: 500; }
+    #controls th, #controls td { padding: .12rem .7rem; border-bottom: 1px solid #1c2230; }
     #help { color: #5f6779; font-size: .8rem; text-align: center; }
     #touch { display: none; width: min(100vw, 30rem); box-sizing: border-box; padding: .5rem .75rem;
       justify-content: space-between; align-items: center; touch-action: none; user-select: none;
       -webkit-user-select: none; }
     body.touch #touch { display: flex; }
-    body.touch #help { display: none; }
     body.touch #screen, body.touch #soft { height: auto; width: min(100vw, calc(100vh - 15rem)); }
     #touch .pad { display: grid; grid-template-columns: repeat(3, 3.4rem); grid-template-rows: repeat(3, 3.4rem);
       gap: .25rem; }
@@ -61,8 +65,14 @@
       <button id="btn-res" title="F2">Original resolution</button>
       <button id="btn-mute" title="M">Mute</button>
       <button id="btn-full" title="F">Fullscreen</button>
+      <button id="btn-controls">Controls</button>
       <button id="btn-reset">Reset saved data</button>
     </div>
+    <div id="pad"></div>
+    <table id="controls" hidden>
+      <thead><tr><th>Action</th><th>Keyboard</th><th>Controller</th></tr></thead>
+      <tbody id="controls-body"></tbody>
+    </table>
     <div id="touch">
       <div class="pad">
         <span></span><button data-key="17">▲</button><span></span>
@@ -79,7 +89,6 @@
         <span></span><button data-key="0">Jump</button><span></span>
       </div>
     </div>
-    <div id="help">Arrows/WASD move · Enter select · Space jump · Z buster/confirm · C special · Shift lock-on · Q / E soft keys · 0–9 keypad</div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>
