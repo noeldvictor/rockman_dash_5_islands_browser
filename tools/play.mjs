@@ -2,7 +2,15 @@
 // Headless driver for the browser build: loads the game, feeds it key presses and saves
 // screenshots. Used to check rendering without a display.
 //
-//   node tools/play.mjs [--variant localized] [--scale 2] [--out build/shots] <step>...
+//   node tools/play.mjs [--variant localized] [--scale 2] [--out build/shots]
+//                        [--gpu 1] [--headed 1] <step>...
+//
+// By default Chrome runs headless with the software renderer (works anywhere). --gpu 1 uses the
+// machine's GPU instead; --headed 1 opens a visible window (needs a display; implies --gpu).
+//
+// Interactive sessions: `--serve 1` launches Chrome, loads the game and stays running;
+// `--attach 1 <step>...` then runs steps against that same page (state is kept between calls)
+// and prints any page errors collected since the last call.
 //
 // Steps run in order:
 //   wait:<ms>            let the game run
@@ -28,12 +36,43 @@ for (let i = 0; i < args.length; i++) {
 }
 mkdirSync(opt.out, { recursive: true });
 
-const browser = await chromium.launch({
-  channel: 'chrome',
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-});
-const page = await browser.newPage({ viewport: { width: 720, height: 800 } });
+const CDP_PORT = 9333;
+const headed = opt.headed === '1';
+const gpu = headed || opt.gpu === '1';
+const attach = opt.attach === '1';
+const serve = opt.serve === '1';
+
+let browser;
+let page;
 let errors = 0;
+if (attach) {
+  browser = await chromium.connectOverCDP(`http://localhost:${CDP_PORT}`);
+  page = browser.contexts()[0].pages()[0];
+  const collected = await page.evaluate(() => (window.__errors || []).splice(0));
+  for (const e of collected) console.log(`[page error] ${e}`.slice(0, 600));
+  errors += collected.length;
+} else {
+  const args = gpu
+    ? ['--ignore-gpu-blocklist', '--enable-gpu', '--use-angle=gl', '--autoplay-policy=no-user-gesture-required']
+    : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+  if (serve) {
+    // keep the game running at full speed even when the window is covered or unfocused
+    args.push(`--remote-debugging-port=${CDP_PORT}`, '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding', '--disable-background-timer-throttling');
+  }
+  browser = await chromium.launch({ channel: 'chrome', headless: !headed, args });
+  page = await browser.newPage({ viewport: { width: 720, height: 800 } });
+  await page.addInitScript(() => {
+    window.__errors = [];
+    window.addEventListener('error', (e) => window.__errors.push(String(e.message)));
+    window.addEventListener('unhandledrejection', (e) => window.__errors.push(String(e.reason)));
+    const error = console.error.bind(console);
+    console.error = (...a) => {
+      window.__errors.push(a.map(String).join(' '));
+      error(...a);
+    };
+  });
+}
 page.on('console', (m) => {
   const t = m.type();
   if (t === 'error') errors++;
@@ -43,8 +82,10 @@ page.on('pageerror', (e) => {
   errors++;
   console.log(`[pageerror] ${e.message}\n${(e.stack || '').split('\n').slice(0, 6).join('\n')}`);
 });
-await page.goto(`${opt.url}?variant=${opt.variant}&scale=${opt.scale}`);
-await page.waitForSelector('#stage:not([hidden])', { timeout: 30000 });
+if (!attach) {
+  await page.goto(`${opt.url}?variant=${opt.variant}&scale=${opt.scale}`);
+  await page.waitForSelector('#stage:not([hidden])', { timeout: 30000 });
+}
 
 for (const step of steps) {
   const [cmd, a, b] = step.split(':');
@@ -83,5 +124,10 @@ for (const step of steps) {
     console.log(`unknown step ${step}`);
   }
 }
+if (serve) {
+  console.log(`serving; attach with: node tools/play.mjs --attach 1 <step>...`);
+  await new Promise(() => {}); // until killed
+}
+if (attach) process.exit(errors ? 1 : 0); // leave the browser running
 await browser.close();
 process.exit(errors ? 1 : 0);
