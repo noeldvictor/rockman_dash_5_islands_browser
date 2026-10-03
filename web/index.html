@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rockman DASH: Great Adventure on 5 Islands</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #0b0d12; color: #d7dce5;
+      font: 15px/1.4 system-ui, sans-serif; }
+    body { display: flex; align-items: center; justify-content: center; }
+    #menu { text-align: center; max-width: 34rem; padding: 1rem; }
+    #menu h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+    #menu p { color: #8b93a3; margin: .25rem 0 1.25rem; }
+    #menu button { font: inherit; margin: .3rem; padding: .7rem 1.1rem; border-radius: .5rem;
+      border: 1px solid #2f3747; background: #171c27; color: inherit; cursor: pointer; }
+    #menu button:hover { background: #222a3a; }
+    #menu small { display: block; color: #8b93a3; }
+    #stage { display: flex; flex-direction: column; align-items: center; }
+    #screen { display: block; height: min(100vw, calc(100vh - 56px)); aspect-ratio: 1;
+      background: #000; }
+    #screen.pixelated { image-rendering: pixelated; }
+    #soft { display: flex; justify-content: space-between; width: min(100vw, calc(100vh - 56px));
+      box-sizing: border-box; padding: .35rem .75rem; color: #aab2c2; min-height: 1.4rem; }
+    #help { color: #5f6779; font-size: .8rem; text-align: center; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <h1>Rockman DASH: Great Adventure on 5 Islands</h1>
+    <p>Choose which English names to use.</p>
+    <button data-variant="localized">Localized<small>MegaMan, Servbot, Reaverbot, Digger</small></button>
+    <button data-variant="delocalized">Delocalized<small>Rock, Kobun, Reaverd, Digouter</small></button>
+  </div>
+  <div id="status" hidden></div>
+  <div id="stage" hidden>
+    <canvas id="screen" width="240" height="240"></canvas>
+    <div id="soft"><span id="soft1"></span><span id="soft2"></span></div>
+    <div id="help">Arrows move · Enter/Z select · Q / E soft keys · 0–9 * # keypad · F2 original resolution</div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

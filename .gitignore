@@ -1,0 +1,11 @@
+# generated
+/build/
+/runtime/target/
+/web/node_modules/
+/web/dist/
+/web/public/game/
+/web/public/data/
+
+# the Windows launcher/emulator bundle the game was distributed with (not needed by the port)
+/rockmanlegendsof5islands.zip
+/rockmanlegendsof5islands/

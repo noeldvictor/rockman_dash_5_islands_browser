@@ -1,0 +1,3 @@
+# original game files must stay byte-exact
+original/** -text
+*.zip -text

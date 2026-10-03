@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>rdash</groupId>
+  <artifactId>rdash-runtime</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <!--
+    Statically recompiles the original game bytecode (original/<variant>/RockmanDASH.jar)
+    together with our DoJa API reimplementation (src/main/java) into one JavaScript module.
+    Build with: ./mvnw -q package -Dvariant=localized   (or delocalized)
+  -->
+  <properties>
+    <variant>localized</variant>
+    <teavm.version>0.14.1</teavm.version>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <game.out>${project.basedir}/../web/public/game/${variant}</game.out>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-classlib</artifactId>
+      <version>${teavm.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-jso</artifactId>
+      <version>${teavm.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.teavm</groupId>
+      <artifactId>teavm-jso-apis</artifactId>
+      <version>${teavm.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>capcom</groupId>
+      <artifactId>rockman-dash-5islands</artifactId>
+      <version>1.0.2</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/../original/${variant}/RockmanDASH.jar</systemPath>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <directory>${project.basedir}/target/${variant}</directory>
+    <plugins>
+      <plugin>
+        <groupId>org.teavm</groupId>
+        <artifactId>teavm-maven-plugin</artifactId>
+        <version>${teavm.version}</version>
+        <executions>
+          <execution>
+            <goals><goal>compile</goal></goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <mainClass>Boot</mainClass>
+              <targetDirectory>${game.out}</targetDirectory>
+              <targetFileName>game.js</targetFileName>
+              <jsModuleType>ES2015</jsModuleType>
+              <minifying>false</minifying>
+              <sourceMapsGenerated>false</sourceMapsGenerated>
+              <debugInformationGenerated>false</debugInformationGenerated>
+              <optimizationLevel>ADVANCED</optimizationLevel>
+              <incremental>false</incremental>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
