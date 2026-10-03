@@ -182,7 +182,8 @@ public class Transform {
 
     /**
      * Sets this to the view matrix of a camera at {@code position} looking at the point
-     * {@code look}. View space is x right, y up, +z forward.
+     * {@code look}, with {@code up} the upward direction. View space is the engine's
+     * right-handed x right, y down, +z forward.
      */
     public void lookAt(Vector3D position, Vector3D look, Vector3D up) {
         float zx = look.x - position.x, zy = look.y - position.y, zz = look.z - position.z;
@@ -193,7 +194,8 @@ public class Transform {
         zx /= zl;
         zy /= zl;
         zz /= zl;
-        float xx = up.y * zz - up.z * zy, xy = up.z * zx - up.x * zz, xz = up.x * zy - up.y * zx;
+        // x = z cross up
+        float xx = zy * up.z - zz * up.y, xy = zz * up.x - zx * up.z, xz = zx * up.y - zy * up.x;
         float xl = (float) Math.sqrt(xx * xx + xy * xy + xz * xz);
         if (xl == 0f) {
             return;
@@ -201,6 +203,7 @@ public class Transform {
         xx /= xl;
         xy /= xl;
         xz /= xl;
+        // y = z cross x (points down)
         float yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
         float[] a = m;
         a[0] = xx; a[1] = xy; a[2] = xz; a[3] = -(xx * position.x + xy * position.y + xz * position.z);

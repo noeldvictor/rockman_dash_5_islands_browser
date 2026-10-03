@@ -5,9 +5,9 @@
 //   for each object, then flushBuffer(). renderObject3D only queues; flushBuffer draws the queue.
 //
 // Conventions (see Transform.java): matrices arrive row-major with the translation in elements
-// 3/7/11; view space is x right, y up, +z into the screen. three.js matrices are column-major
-// and its clip space expects -z forward, so the projection built here takes care of that instead
-// of a three.js camera class.
+// 3/7/11; view space is right-handed with x right, y DOWN and +z into the screen. three.js
+// cameras look down -z with y up, so the projection is built by hand here instead of using a
+// three.js camera class.
 
 import * as THREE from 'three';
 import { decodeBMP8 } from '../formats/bmp.js';
@@ -269,7 +269,7 @@ export class G3D {
       // p.w x p.h world units fill the clip rectangle; depth range is generous and symmetric
       const depth = 32768;
       e[0] = 2 / p.w;
-      e[5] = 2 / p.h;
+      e[5] = -2 / p.h;
       e[10] = 1 / depth;
       e[15] = 1;
     } else {
@@ -285,7 +285,7 @@ export class G3D {
       }
       const { near, far } = p;
       e[0] = fx;
-      e[5] = fy;
+      e[5] = -fy; // view-space y points down the screen
       e[10] = (far + near) / (far - near);
       e[11] = 1; // w = +z (view space looks down +z)
       e[14] = (-2 * far * near) / (far - near);

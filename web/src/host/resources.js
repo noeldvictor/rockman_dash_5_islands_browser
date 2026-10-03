@@ -78,7 +78,8 @@ export class Resources {
     res.jar = unzipSync(files[0]);
     res.jam = parseJam(files[1]);
     res.#initScratchpad(files[2]);
-    sdNames.forEach((n, i) => res.sd.set(n, files[3 + i]));
+    // FAT names are case-insensitive: the dump is upper-case, the game asks for lower-case
+    sdNames.forEach((n, i) => res.sd.set(n.toLowerCase(), files[3 + i]));
 
     try {
       res.db = await openDB();
@@ -88,7 +89,7 @@ export class Resources {
           const seg = Number(key.slice(3));
           if (res.segments[seg] && value.length === res.segments[seg].length) res.segments[seg].set(value);
         } else if (key.startsWith('sd:')) {
-          res.sd.set(key.slice(3), value);
+          res.sd.set(key.slice(3).toLowerCase(), value);
         }
       }
     } catch (e) {
@@ -150,11 +151,13 @@ export class Resources {
   }
 
   sdRead(name) {
+    name = name.toLowerCase();
     const f = this.sd.get(name);
     return f ? i8(f) : null;
   }
 
   sdWrite(name, data, len) {
+    name = name.toLowerCase();
     if (len < 0) {
       this.sd.delete(name);
       this.#persist(`sd:${name}`, null);
