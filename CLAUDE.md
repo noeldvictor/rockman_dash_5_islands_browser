@@ -139,8 +139,10 @@ Keep this section current.
 - Working: recompilation of both variants, boot, title/menus, save loading from the dumped
   scratchpad, SD-card island data, 2D UI and dialogue, 3D maps, character models and animation,
   effects, collision, keyboard/gamepad/touch input, save persistence (IndexedDB), the game-server
-  stand-in, hi-res and original-resolution modes (F2).
+  stand-in (data download, save backup), hi-res and original-resolution modes (F2), fullscreen (F),
+  mute (M), fast loading screens.
 - In progress: sound (MFi).
-- Known gaps: lighting/specular flags on models are ignored (drawn unlit); point/line/point-sprite
-  primitives are not drawn; `Group` blend/transparency overrides are not implemented (the game
-  never uses them); the game runs at its native 15 fps logic rate.
+- Known gaps: only what the game uses is implemented — it never adds lights or fog, only draws
+  quad `Primitive`s, and never overrides blend/transparency on a `Group`, so lit materials,
+  point/line/sprite primitives and those overrides are absent. The game runs at its native 15 fps
+  logic rate (no interpolation).

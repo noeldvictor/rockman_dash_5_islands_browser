@@ -37,14 +37,7 @@ async function start(variant) {
   };
   applyScale();
   window.addEventListener('resize', applyScale);
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'F2') {
-      hires = !hires;
-      localStorage.setItem('rdash.hires', hires ? '1' : '0');
-      applyScale();
-      e.preventDefault();
-    }
-  });
+  document.addEventListener('fullscreenchange', applyScale);
 
   const input = new Input(window);
   // on-screen buttons for touch devices
@@ -102,6 +95,52 @@ async function start(variant) {
     },
     screenObject: screen,
   };
+
+  // page controls
+  let muted = localStorage.getItem('rdash.muted') === '1';
+  const refreshBar = () => {
+    $('btn-res').textContent = hires ? 'Original resolution' : 'High resolution';
+    $('btn-mute').textContent = muted ? 'Unmute' : 'Mute';
+  };
+  const toggleRes = () => {
+    hires = !hires;
+    localStorage.setItem('rdash.hires', hires ? '1' : '0');
+    applyScale();
+    refreshBar();
+  };
+  const toggleMute = () => {
+    muted = !muted;
+    localStorage.setItem('rdash.muted', muted ? '1' : '0');
+    audio.setMuted?.(muted);
+    refreshBar();
+  };
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else $('stage').requestFullscreen?.();
+  };
+  audio.setMuted?.(muted);
+  refreshBar();
+  $('btn-res').addEventListener('click', toggleRes);
+  $('btn-mute').addEventListener('click', toggleMute);
+  $('btn-full').addEventListener('click', toggleFullscreen);
+  $('btn-reset').addEventListener('click', async () => {
+    if (!confirm('Delete all saved progress and settings for this game in this browser?')) return;
+    await resources.reset();
+    localStorage.removeItem('rdash.backup');
+    location.reload();
+  });
+  for (const b of document.querySelectorAll('#bar button')) {
+    b.addEventListener('keydown', (e) => e.preventDefault()); // keep Space/Enter for the game
+    b.addEventListener('click', () => b.blur());
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.code === 'F2') toggleRes();
+    else if (e.code === 'KeyM') toggleMute();
+    else if (e.code === 'KeyF') toggleFullscreen();
+    else return;
+    e.preventDefault();
+  });
 
   const game = await import(/* @vite-ignore */ new URL(`game/${variant}/game.js`, document.baseURI).href);
   $('status').hidden = true;

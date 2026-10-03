@@ -16,11 +16,18 @@
     #menu button:hover { background: #222a3a; }
     #menu small { display: block; color: #8b93a3; }
     #stage { display: flex; flex-direction: column; align-items: center; }
-    #screen { display: block; height: min(100vw, calc(100vh - 56px)); aspect-ratio: 1;
+    #screen { display: block; height: min(100vw, calc(100vh - 7.5rem)); aspect-ratio: 1;
       background: #000; }
     #screen.pixelated { image-rendering: pixelated; }
-    #soft { display: flex; justify-content: space-between; width: min(100vw, calc(100vh - 56px));
+    #soft { display: flex; justify-content: space-between; width: min(100vw, calc(100vh - 7.5rem));
       box-sizing: border-box; padding: .35rem .75rem; color: #aab2c2; min-height: 1.4rem; }
+    #bar { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: center; margin: .15rem 0 .35rem; }
+    #bar button { font: inherit; font-size: .8rem; padding: .25rem .6rem; border-radius: .4rem;
+      border: 1px solid #2f3747; background: #171c27; color: #aab2c2; cursor: pointer; }
+    #bar button:hover { background: #222a3a; }
+    #stage:fullscreen { background: #000; justify-content: center; height: 100%; }
+    #stage:fullscreen #screen { height: min(100vw, calc(100vh - 3rem)); }
+    #stage:fullscreen #bar, #stage:fullscreen #help { display: none; }
     #help { color: #5f6779; font-size: .8rem; text-align: center; }
     #touch { display: none; width: min(100vw, 30rem); box-sizing: border-box; padding: .5rem .75rem;
       justify-content: space-between; align-items: center; touch-action: none; user-select: none;
@@ -49,6 +56,12 @@
   <div id="stage" hidden>
     <canvas id="screen" width="240" height="240"></canvas>
     <div id="soft"><span id="soft1"></span><span id="soft2"></span></div>
+    <div id="bar">
+      <button id="btn-res" title="F2">Original resolution</button>
+      <button id="btn-mute" title="M">Mute</button>
+      <button id="btn-full" title="F">Fullscreen</button>
+      <button id="btn-reset">Reset saved data</button>
+    </div>
     <div id="touch">
       <div class="pad">
         <span></span><button data-key="17">▲</button><span></span>
@@ -65,7 +78,7 @@
         <span></span><button data-key="0">Jump</button><span></span>
       </div>
     </div>
-    <div id="help">Arrows/WASD move · Enter select · Space jump · Z buster/confirm · C special · Shift lock-on · Q / E soft keys · 0–9 keypad · F2 original resolution</div>
+    <div id="help">Arrows/WASD move · Enter select · Space jump · Z buster/confirm · C special · Shift lock-on · Q / E soft keys · 0–9 keypad</div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

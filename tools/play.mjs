@@ -7,7 +7,8 @@
 // Steps run in order:
 //   wait:<ms>            let the game run
 //   key:<name>[:<ms>]    hold a key (Playwright key name, e.g. Enter, ArrowUp, Digit5) for <ms> (default 120)
-//   shot:<name>          save build/shots/<name>.png
+//   shot:<name>          save build/shots/<name>.png (the game canvas)
+//   page:<name>          save build/shots/<name>.png (the whole page)
 //   eval:<js>            evaluate an expression in the page and print the result
 //   mash:<ms>            press random game keys for <ms> (soak test)
 //   reload               reload the page (same browser profile, so saves persist)
@@ -54,6 +55,10 @@ for (const step of steps) {
     await page.waitForTimeout(Number(b || 120));
     await page.keyboard.up(a);
     await page.waitForTimeout(80);
+  } else if (cmd === 'page') {
+    const file = resolve(opt.out, `${a}.png`);
+    await page.screenshot({ path: file });
+    console.log(`shot ${file}`);
   } else if (cmd === 'reload') {
     await page.reload();
     await page.waitForSelector('#stage:not([hidden])', { timeout: 30000 });
