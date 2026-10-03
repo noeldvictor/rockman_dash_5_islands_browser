@@ -53,7 +53,8 @@ only useful as reference (it contains NTT's DoJa 5.1 SDK: API stubs in
 ```bash
 tools/build.sh                 # recompile + copy data (both variants; pass one name to build just it)
 cd web && npm run dev          # http://localhost:5173/  (?variant=localized&scale=2)
-node tools/play.mjs wait:3000 key:Enter shot:title   # needs the dev server running
+node tools/play.mjs wait:3500 key:Enter wait:3000 key:Enter wait:2500 key:Enter wait:5000 shot:ingame
+                               # Continue -> island map -> enter area; needs the dev server running
 python3 tools/extract_assets.py                      # -> build/assets/
 node tools/d4d/check_all.mjs                         # parse every map
 ```
@@ -74,7 +75,13 @@ obfuscated (`a`…`bt`).
   zip; `RDDATA<i>.BIN` holds the chunk count. Originally downloaded from Capcom's server.
 - The game also talks HTTP to its (dead) server: `dataget.php` (data download) and `isr.php`
   (server-side save). `web/src/host/net.js` answers those.
-- Writes to the scratchpad and SD card are mirrored to IndexedDB (`rdash`).
+- Writes to the scratchpad and SD card are mirrored to IndexedDB (`rdash`); the server-side save
+  backup lives in `localStorage['rdash.backup']`.
+- At boot the host stamps the current year*100+month into scratchpad segment 2, so the game sees
+  a current subscription check and starts at the title (otherwise the patched game re-asks where
+  to store data on every launch).
+- The dumped scratchpad already contains a save near the end of the game (island 5), which is
+  what "Continue" loads; "New Game" starts on island 1.
 
 ## File formats
 

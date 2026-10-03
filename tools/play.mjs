@@ -10,6 +10,7 @@
 //   shot:<name>          save build/shots/<name>.png
 //   eval:<js>            evaluate an expression in the page and print the result
 //   mash:<ms>            press random game keys for <ms> (soak test)
+//   reload               reload the page (same browser profile, so saves persist)
 //
 // Expects a dev server (cd web && npx vite) on --url (default http://localhost:5173/).
 
@@ -53,6 +54,9 @@ for (const step of steps) {
     await page.waitForTimeout(Number(b || 120));
     await page.keyboard.up(a);
     await page.waitForTimeout(80);
+  } else if (cmd === 'reload') {
+    await page.reload();
+    await page.waitForSelector('#stage:not([hidden])', { timeout: 30000 });
   } else if (cmd === 'eval') {
     console.log('eval ->', JSON.stringify(await page.evaluate(step.slice(5))));
   } else if (cmd === 'mash') {

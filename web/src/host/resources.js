@@ -98,6 +98,7 @@ export class Resources {
     } catch (e) {
       console.warn('IndexedDB unavailable; saves will not persist', e);
     }
+    res.#stampMembership();
     return res;
   }
 
@@ -121,6 +122,19 @@ export class Resources {
       this.segments.push(sp.slice(off, off + size));
       off += size;
     }
+  }
+
+  /**
+   * Segment 2 holds year*100+month of the last successful subscription check (LE int32). When it
+   * is not the current month the game "verifies membership" on start-up; with the server gone the
+   * English patch skips that but then shows the storage-location prompt on every launch. Stamping
+   * the current month makes the game start as it did for a subscriber in good standing.
+   */
+  #stampMembership() {
+    const seg = this.segments[2];
+    if (!seg || seg.length < 4) return;
+    const now = new Date();
+    new DataView(seg.buffer, seg.byteOffset).setInt32(0, now.getFullYear() * 100 + now.getMonth() + 1, true);
   }
 
   #persist(key, bytes) {
