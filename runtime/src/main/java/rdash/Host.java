@@ -69,6 +69,34 @@ public final class Host {
     @JSBody(script = "return performance.now() < globalThis.DOJA.loadingUntil;")
     public static native boolean isLoading();
 
+    // ---- port features: widescreen, free-look camera, cheats ----------------------------------
+    /** Display width / height (1.0 on the original square screen). */
+    @JSBody(script = "return globalThis.DOJA.gfx.aspect();")
+    public static native float aspect();
+
+    /** Free-look offsets in degrees, relative to the game's own follow camera. */
+    @JSBody(script = "return globalThis.DOJA.camera.yaw;")
+    public static native float cameraYaw();
+
+    @JSBody(script = "return globalThis.DOJA.camera.pitch;")
+    public static native float cameraPitch();
+
+    /** Tells the host whether the follow camera is active this frame and the player's heading. */
+    @JSBody(params = {"follow", "playerYaw"}, script = "globalThis.DOJA.camera.report(follow, playerYaw);")
+    public static native void cameraReport(boolean follow, float playerYaw);
+
+    /** True once after the free-look offsets changed. */
+    @JSBody(script = "return globalThis.DOJA.camera.consumeChanged();")
+    public static native boolean cameraChanged();
+
+    /** Bit set of Mods.* cheat flags; one-shot flags are cleared by the host when read. */
+    @JSBody(script = "return globalThis.DOJA.cheats.flags();")
+    public static native int cheatFlags();
+
+    /** Game speed multiplier (1 = normal). */
+    @JSBody(script = "return globalThis.DOJA.cheats.speed | 0;")
+    public static native int cheatSpeed();
+
     @Async
     public static native void waitFrame();
 

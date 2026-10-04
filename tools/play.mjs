@@ -3,7 +3,7 @@
 // screenshots. Used to check rendering without a display.
 //
 //   node tools/play.mjs [--variant localized] [--scale 2] [--out build/shots]
-//                        [--gpu 1] [--headed 1] <step>...
+//                        [--gpu 1] [--headed 1] [--query 'aspect=1.78&touch'] <step>...
 //
 // By default Chrome runs headless with the software renderer (works anywhere). --gpu 1 uses the
 // machine's GPU instead; --headed 1 opens a visible window (needs a display; implies --gpu).
@@ -28,7 +28,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const args = process.argv.slice(2);
-const opt = { variant: 'localized', scale: '2', out: 'build/shots', url: 'http://localhost:5173/' };
+const opt = { variant: 'localized', scale: '2', out: 'build/shots', url: 'http://localhost:5173/', query: '' };
 const steps = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i].startsWith('--')) opt[args[i].slice(2)] = args[++i];
@@ -61,7 +61,7 @@ if (attach) {
       '--disable-renderer-backgrounding', '--disable-background-timer-throttling');
   }
   browser = await chromium.launch({ channel: 'chrome', headless: !headed, args });
-  page = await browser.newPage({ viewport: { width: 720, height: 800 } });
+  page = await browser.newPage({ viewport: { width: Number(opt.width || 720), height: Number(opt.height || 800) } });
   await page.addInitScript(() => {
     window.__errors = [];
     window.addEventListener('error', (e) => window.__errors.push(String(e.message)));
@@ -83,7 +83,7 @@ page.on('pageerror', (e) => {
   console.log(`[pageerror] ${e.message}\n${(e.stack || '').split('\n').slice(0, 6).join('\n')}`);
 });
 if (!attach) {
-  await page.goto(`${opt.url}?variant=${opt.variant}&scale=${opt.scale}`);
+  await page.goto(`${opt.url}?variant=${opt.variant}&scale=${opt.scale}${opt.query ? `&${opt.query}` : ''}`);
   await page.waitForSelector('#stage:not([hidden])', { timeout: 30000 });
 }
 

@@ -1,6 +1,8 @@
 // Keypad emulation. DoJa reports keys as bit positions in Canvas.getKeypadState() and as
 // KEY_PRESSED_EVENT(0)/KEY_RELEASED_EVENT(1) through Canvas.processEvent().
 
+import { wrap180 } from './camera.js';
+
 export const KEY = {
   NUM0: 0, NUM1: 1, NUM2: 2, NUM3: 3, NUM4: 4, NUM5: 5, NUM6: 6, NUM7: 7, NUM8: 8, NUM9: 9,
   ASTERISK: 10, POUND: 11,
@@ -42,10 +44,17 @@ const GAMEPAD = {
   8: [KEY.SOFT1], 9: [KEY.SOFT2],
 };
 const STICK_DEADZONE = 0.45;
+const LOOK_DEADZONE = 0.2;
+const LOOK_YAW_SPEED = 150; // degrees per second at full deflection
+const LOOK_PITCH_SPEED = 90;
+// Camera-relative steering: the game turns the player in fixed steps, so allow some slack
+const AIM_TOLERANCE = 12;
+const WALK_CONE = 75;
 
 /** Human-readable control reference, shown on the page. */
 export const CONTROLS = [
-  ['Move / turn', 'Arrows or WASD', 'D-pad or left stick; L1 / R1 turn'],
+  ['Move / turn', 'Arrows or WASD', 'D-pad; left stick moves relative to the camera; L1 / R1 turn'],
+  ['Look around', 'Drag the mouse on the game; R to re-centre', 'Right stick; press it to re-centre'],
   ['Jump', 'Space or X', 'A / Cross'],
   ['Buster, confirm', 'Z or J', 'X / Square'],
   ['Special weapon', 'C or K', 'Y / Triangle'],
@@ -66,6 +75,9 @@ export class Input {
   /** Called with the connected pad's name, or null when none is connected. */
   onGamepadChange = null;
   #padName = null;
+  /** @type {import('./camera.js').FreeCamera|null} set by main.js */
+  camera = null;
+  #lastPoll = 0;
 
   constructor(target = window) {
     target.addEventListener('keydown', (e) => {
@@ -121,9 +133,14 @@ export class Input {
   }
 
   pollGamepads() {
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - this.#lastPoll) / 1000);
+    this.#lastPoll = now;
+    const cam = this.camera;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const down = new Set();
     let name = null;
+    let steering = false;
     for (const pad of pads) {
       if (!pad || !pad.connected) continue;
       name ??= pad.id;
@@ -131,12 +148,37 @@ export class Input {
         const b = pad.buttons[index];
         if (b && (b.pressed || b.value > 0.5)) for (const k of keys) down.add(k);
       }
-      const [x = 0, y = 0, rx = 0] = pad.axes;
-      if (x < -STICK_DEADZONE || rx < -STICK_DEADZONE) down.add(KEY.LEFT);
-      if (x > STICK_DEADZONE || rx > STICK_DEADZONE) down.add(KEY.RIGHT);
-      if (y < -STICK_DEADZONE) down.add(KEY.UP);
-      if (y > STICK_DEADZONE) down.add(KEY.DOWN);
+      const [x = 0, y = 0, rx = 0, ry = 0] = pad.axes;
+      const following = !!cam && cam.following;
+      // right stick: look around (free camera) during play, plain turning otherwise
+      if (following) {
+        const lx = Math.abs(rx) > LOOK_DEADZONE ? rx : 0;
+        const ly = Math.abs(ry) > LOOK_DEADZONE ? ry : 0;
+        if (lx || ly) cam.rotate(lx * LOOK_YAW_SPEED * dt, ly * LOOK_PITCH_SPEED * dt);
+        if (pad.buttons[11]?.pressed) cam.recenter();
+      } else {
+        if (rx < -STICK_DEADZONE) down.add(KEY.LEFT);
+        if (rx > STICK_DEADZONE) down.add(KEY.RIGHT);
+      }
+      // left stick: steer relative to the camera during play, d-pad otherwise
+      const mag = Math.hypot(x, y);
+      if (following && mag > STICK_DEADZONE) {
+        steering = true;
+        // stick up = away from the camera; screen-right is 90 degrees below the camera heading
+        const want = cam.worldYaw - (Math.atan2(x, -y) * 180) / Math.PI;
+        const delta = wrap180(want - cam.playerYaw);
+        if (delta > AIM_TOLERANCE) down.add(KEY.LEFT);
+        else if (delta < -AIM_TOLERANCE) down.add(KEY.RIGHT);
+        if (Math.abs(delta) < WALK_CONE) down.add(KEY.UP);
+      } else if (!following) {
+        if (x < -STICK_DEADZONE) down.add(KEY.LEFT);
+        if (x > STICK_DEADZONE) down.add(KEY.RIGHT);
+        if (y < -STICK_DEADZONE) down.add(KEY.UP);
+        if (y > STICK_DEADZONE) down.add(KEY.DOWN);
+      }
     }
+    // while steering with the stick, the camera holds its heading instead of swinging behind
+    cam?.setHoldWorld(steering);
     if (name !== this.#padName) {
       this.#padName = name;
       this.onGamepadChange?.(name);

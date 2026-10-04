@@ -7,6 +7,7 @@ public final class Boot {
 
     public static void main(String[] args) {
         Host.init();
+        rdash.GameHooks.frameHook = Mods::frame;
         new RockmanDash_F().start();
     }
 }

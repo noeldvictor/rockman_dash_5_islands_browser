@@ -10,10 +10,14 @@ cd "$(dirname "$0")/.."
 variants=("$@")
 [ ${#variants[@]} -eq 0 ] && variants=(localized delocalized)
 
+# Game classes we replace with modified decompiled sources: every default-package source file in
+# the runtime that is not one of our own classes.
+overrides=$(cd runtime/src/main/java && ls *.java | sed 's/\.java$//' | grep -vx -e Boot -e Mods | paste -sd, -)
+
 for v in "${variants[@]}"; do
   echo "== recompiling $v"
   mkdir -p "build/patched/$v"
-  python3 tools/patch_jar.py "original/$v/RockmanDASH.jar" "build/patched/$v/RockmanDASH.jar"
+  python3 tools/patch_jar.py "original/$v/RockmanDASH.jar" "build/patched/$v/RockmanDASH.jar" --drop "$overrides"
   (cd runtime && ./mvnw -q -B package -Dvariant="$v")
   mkdir -p "web/public/data/$v"
   cp original/"$v"/RockmanDASH.{jar,jam,sp} "web/public/data/$v/"

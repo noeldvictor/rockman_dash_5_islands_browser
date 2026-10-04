@@ -21,10 +21,26 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
   `web/src/main.js` assembles before importing `game.js`.
 - **The game thread** is a TeaVM coroutine. `Graphics.unlock(true)` presents the frame and then
   suspends until `requestAnimationFrame`; the game paces itself to 15 fps with `Thread.sleep`.
-- **One build-time bytecode patch** (`tools/patch_jar.py`): the game's single `Thread.sleep` call
-  (its frame limiter) is redirected to `rdash.GameHooks.sleep`, which skips the wait while a
-  loading screen is showing. The host recognises loading screens by their "please do not
-  press/push any buttons" line (`g2d.js`), so loading takes seconds instead of ~25 s per area.
+- **Build-time jar patch** (`tools/patch_jar.py`, output in `build/patched/`), three mechanical
+  changes and nothing else:
+  1. the game's single `Thread.sleep` call (its frame limiter) is redirected to
+     `rdash.GameHooks.sleep`, which skips the wait while a loading screen is showing. The host
+     recognises loading screens by their "please do not press/push any buttons" line (`g2d.js`),
+     so loading takes seconds instead of ~25 s per area;
+  2. every field is made public, so our default-package classes can read game state;
+  3. classes we override from source are dropped from the jar.
+- **Source overrides of game classes.** A default-package `.java` file in
+  `runtime/src/main/java/` named like a game class replaces that class: it is the CFR
+  decompilation with changes marked `port:`. Currently only `ax.java` (the camera). Only small
+  classes that decompile cleanly are candidates; most of the game does not round-trip through a
+  decompiler. `tools/build.sh` works out the list from the file names.
+- **`Mods.java`** (default package) runs after every presented frame (`GameHooks.frame`): cheats
+  and free-look support. Game-state map it relies on: `ad` = canvas/root; `ad.u` = state machine
+  (`u.f` current state: 2 mission `bp`, 6 title); `ad.i` (`am`) = save data with `m`/`o` max and
+  current life, `n`/`p` max and current special energy, `q` zenny; `ad.p.b` = target frame rate;
+  `ad.w` (`bp`) = mission, `bp.d` (`bh`) = world, `bh.a` (`av`) = player (`G` transform, `o` =
+  "moved" flag that makes the game rebuild its camera, `D` = map mode), `bp.a` (`ax`) = camera,
+  `bh.b` (`ao`) = map with collision, `bp.e` (`k`) = mission status/dialog flags.
 - **Two variants** of the English patch (`localized`: MegaMan/Servbot/Reaverbot…, `delocalized`:
   Rock/Kobun/Reaverd…) differ in 3 classes and ~100 data files, so each is recompiled separately
   and picked on the start page (`?variant=` skips the menu).
@@ -130,6 +146,24 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
 - `new String(byte[])` decodes UTF-8 here but Shift_JIS on the phone. The English patch's data is
   ASCII, so this only matters if Japanese data files are ever shown.
 
+## Port features beyond the original
+
+- **Widescreen** (F3, `screen.js`/`g3d.js`): the canvas becomes wider than 240 logical pixels.
+  Full-screen 3D keeps its vertical field of view and fills the width; the game's 2D stays in the
+  centred 240x240 area (HUD and dialogue centred, 2D-only screens pillarboxed), except the
+  backdrop drawn before full-screen 3D (the sky), which is stretched across. Inset 3D views (map
+  screen, model viewers) keep the square projection. The camera override widens the game's own
+  culling frustum to match (`Host.aspect()`), otherwise objects pop out at the sides.
+- **Free-look camera** (right stick, mouse drag, R/R3 to re-centre; `camera.js`, `ax.java`,
+  `Mods.java`): during normal gameplay the follow camera is swung around a point above the player
+  by host-held yaw/pitch offsets, keeping the game's camera distance and stopping at walls with
+  the game's own map collision. The game only rebuilds its camera when the player moves, so
+  `Mods` sets the player's "moved" flag when the offsets change. While the left stick is used the
+  camera holds its world heading and the stick steers relative to it by pressing the game's own
+  turn/forward keys (the game itself only has tank controls).
+- **Cheats** (F4, `cheats.js`, `Mods.java`): infinite life, infinite special energy, refill, max
+  zenny, 2x/3x game speed (raises the frame limiter's target; the logic is per-frame).
+
 ## Sound
 
 `web/src/host/audio.js` implements the four `AudioPresenter` ports on a synthesiser running in an
@@ -155,6 +189,8 @@ fresh depth buffer, so 2D/3D ordering matches the phone. Surfaces are `scale`× 
 
 Keep this section current.
 
+- Port extras: widescreen, free-look camera with camera-relative stick steering, controller
+  support with rumble, cheat menu, fast loading.
 - Working: recompilation of both variants, boot, title/menus, save loading from the dumped
   scratchpad, SD-card island data, 2D UI and dialogue, 3D maps, character models and animation,
   effects, collision, keyboard/gamepad/touch input, save persistence (IndexedDB), the game-server
@@ -163,4 +199,5 @@ Keep this section current.
 - Known gaps: only what the game uses is implemented — it never adds lights or fog, only draws
   quad `Primitive`s, and never overrides blend/transparency on a `Group`, so lit materials,
   point/line/sprite primitives and those overrides are absent. The game runs at its native 15 fps
-  logic rate (no interpolation).
+  logic rate (no interpolation). In widescreen the HUD gauges sit at the edges of the centred
+  240 area rather than the screen edges. Free-look does not rotate the 2D sky backdrop.

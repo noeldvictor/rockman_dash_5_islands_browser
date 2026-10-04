@@ -78,11 +78,15 @@ export class G2D {
     this.bind(ctx, scale);
   }
 
-  /** (Re)attach to a context, e.g. after the screen was resized. */
-  bind(ctx, scale) {
+  /**
+   * (Re)attach to a context, e.g. after the screen was resized.
+   * @param {number} [left] logical x of the game's origin on this surface (widescreen)
+   */
+  bind(ctx, scale, left = 0) {
     this.ctx = ctx;
     this.scale = scale;
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    this.left = left;
+    ctx.setTransform(scale, 0, 0, scale, left * scale, 0);
     ctx.imageSmoothingEnabled = false;
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'center';
@@ -95,8 +99,20 @@ export class G2D {
     ctx.restore();
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    if (this.clip) {
-      const [x, y, w, h] = this.clip;
+    let clip = this.clip;
+    if (this.screen) {
+      // the display surface may be wider than the phone's screen (widescreen): never let the
+      // game's 2D drawing spill outside its own 240x240 area
+      if (!clip) clip = [0, 0, 240, 240];
+      else {
+        const x0 = Math.max(0, clip[0]);
+        const y0 = Math.max(0, clip[1]);
+        clip = [x0, y0, Math.max(0, Math.min(240, clip[0] + clip[2]) - x0),
+          Math.max(0, Math.min(240, clip[1] + clip[3]) - y0)];
+      }
+    }
+    if (clip) {
+      const [x, y, w, h] = clip;
       ctx.beginPath();
       ctx.rect(x, y, w, h);
       ctx.clip();
@@ -334,7 +350,7 @@ export class G2D {
       return;
     }
     const k = this.scale;
-    const d = this.ctx.getImageData((x + this.ox) * k, (y + this.oy) * k, w * k, h * k).data;
+    const d = this.ctx.getImageData((x + this.ox + this.left) * k, (y + this.oy) * k, w * k, h * k).data;
     for (let j = 0; j < h; j++) {
       for (let i = 0; i < w; i++) {
         const o = (j * k * w * k + i * k) * 4;
@@ -346,7 +362,7 @@ export class G2D {
   copyArea(sx, sy, w, h, dx, dy) {
     const ctx = this.ctx;
     const k = this.scale;
-    ctx.drawImage(ctx.canvas, (sx + this.ox) * k, (sy + this.oy) * k, w * k, h * k,
+    ctx.drawImage(ctx.canvas, (sx + this.ox + this.left) * k, (sy + this.oy) * k, w * k, h * k,
       sx + dx + this.ox, sy + dy + this.oy, w, h);
     this.#touch();
   }

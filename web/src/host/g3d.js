@@ -261,16 +261,23 @@ export class G3D {
     this.touched.add(obj);
   }
 
-  #updateProjection() {
-    // The projection always spans the whole 240x240 surface (aspect 1); setClipRectFor3D only
-    // scissors. Verified against the phone engine (micro3d_d4.dll).
+  /** Full-screen 3D fills the whole (possibly wide) canvas; inset views keep the 240 square. */
+  #isWide() {
+    const [x, y, w, h] = this.clip;
+    return this.screen.xoff > 0 && x <= 0 && y <= 0 && w >= 240 && h >= 240;
+  }
+
+  /** @param {number} aspect width / height of the viewport being rendered into */
+  #updateProjection(aspect) {
+    // The projection always spans the whole surface; setClipRectFor3D only scissors. Verified
+    // against the phone engine (micro3d_d4.dll), where the surface is 240x240 (aspect 1).
     const p = this.projection;
     const e = this.camera.projectionMatrix.elements;
     e.fill(0);
     if (p.kind === 'parallel') {
-      // p.w x p.h world units are visible across the surface; depth range 0..32768
+      // p.w x p.h world units are visible across the 240x240 surface; depth range 0..32768
       const far = 32768;
-      e[0] = 2 / p.w;
+      e[0] = 2 / (p.w * aspect);
       e[5] = -2 / p.h; // view-space y points down the screen
       e[10] = 2 / far;
       e[14] = -1;
@@ -281,7 +288,7 @@ export class G3D {
       const fy = p.kind === 'perspective'
         ? 1 / Math.tan((p.angle * Math.PI) / 360)
         : (2 * p.near) / p.h;
-      const fx = p.kind === 'perspective' ? fy : (2 * p.near) / p.w;
+      const fx = (p.kind === 'perspective' ? fy : (2 * p.near) / p.w) / aspect;
       const { near, far } = p;
       e[0] = fx;
       e[5] = -fy; // view-space y points down the screen
@@ -297,15 +304,23 @@ export class G3D {
   flush() {
     if (this.queue.length === 0) return;
     const screen = this.screen;
-    screen.flush2D();
+    const wide = this.#isWide();
+    screen.flush2D(wide);
     const r = screen.renderer;
     const k = screen.scale;
     const [x, y, w, h] = this.clip;
-    r.setViewport(0, 0, 240 * k, 240 * k);
-    r.setScissor(x * k, (240 - y - h) * k, w * k, h * k);
+    if (wide) {
+      // widescreen: same vertical field of view, more to see at the sides
+      r.setViewport(0, 0, screen.viewWidth * k, 240 * k);
+      r.setScissor(0, 0, screen.viewWidth * k, 240 * k);
+      screen.wide3D = true;
+    } else {
+      r.setViewport(screen.xoff * k, 0, 240 * k, 240 * k);
+      r.setScissor((screen.xoff + x) * k, (240 - y - h) * k, w * k, h * k);
+    }
     r.setScissorTest(true);
     r.clearDepth();
-    this.#updateProjection();
+    this.#updateProjection(wide ? screen.aspect : 1);
     this.scene.children.length = 0;
     let order = 0;
     for (const mesh of this.queue) {

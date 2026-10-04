@@ -17,7 +17,8 @@
     #menu button:hover { background: #222a3a; }
     #menu small { display: block; color: #8b93a3; }
     #stage { display: flex; flex-direction: column; align-items: center; }
-    #screen { display: block; height: min(100vw, calc(100vh - 7.5rem)); aspect-ratio: 1;
+    #stage { --aspect: 1; }
+    #screen { display: block; height: min(calc(100vw / var(--aspect)), calc(100vh - 9.4rem)); aspect-ratio: var(--aspect);
       background: #000; }
     #screen.pixelated { image-rendering: pixelated; }
     #soft { display: flex; justify-content: space-between; width: min(100vw, calc(100vh - 7.5rem));
@@ -27,8 +28,14 @@
       border: 1px solid #2f3747; background: #171c27; color: #aab2c2; cursor: pointer; }
     #bar button:hover { background: #222a3a; }
     #stage:fullscreen { background: #000; justify-content: center; height: 100%; }
-    #stage:fullscreen #screen { height: min(100vw, calc(100vh - 3rem)); }
-    #stage:fullscreen #bar, #stage:fullscreen #help, #stage:fullscreen #pad, #stage:fullscreen #controls { display: none; }
+    #stage:fullscreen #screen { height: min(calc(100vw / var(--aspect)), calc(100vh - 3rem)); }
+    #stage:fullscreen #bar, #stage:fullscreen #pad, #stage:fullscreen #controls, #stage:fullscreen #cheats { display: none; }
+    #cheats { display: flex; gap: .4rem 1rem; flex-wrap: wrap; justify-content: center; align-items: center;
+      font-size: .8rem; color: #aab2c2; margin: .1rem 0 .4rem; padding: .4rem .7rem;
+      border: 1px solid #2f3747; border-radius: .5rem; max-width: 40rem; }
+    #cheats button, #cheats select { font: inherit; padding: .2rem .5rem; border-radius: .4rem;
+      border: 1px solid #2f3747; background: #171c27; color: #aab2c2; }
+    #bar button.on { border-color: #b08a2e; color: #e6c15a; }
     #pad { color: #5f6779; font-size: .8rem; }
     #pad.on { color: #7fc28a; }
     #controls { font-size: .8rem; color: #aab2c2; border-collapse: collapse; margin: .4rem 0; }
@@ -39,7 +46,7 @@
       justify-content: space-between; align-items: center; touch-action: none; user-select: none;
       -webkit-user-select: none; }
     body.touch #touch { display: flex; }
-    body.touch #screen, body.touch #soft { height: auto; width: min(100vw, calc(100vh - 15rem)); }
+    body.touch #screen { height: min(calc(100vw / var(--aspect)), calc(100vh - 17rem)); }
     #touch .pad { display: grid; grid-template-columns: repeat(3, 3.4rem); grid-template-rows: repeat(3, 3.4rem);
       gap: .25rem; }
     #touch button { font: 600 .8rem system-ui, sans-serif; border-radius: .7rem; border: 1px solid #2f3747;
@@ -63,10 +70,21 @@
     <div id="soft"><span id="soft1"></span><span id="soft2"></span></div>
     <div id="bar">
       <button id="btn-res" title="F2">Original resolution</button>
+      <button id="btn-wide" title="F3">Widescreen</button>
       <button id="btn-mute" title="M">Mute</button>
       <button id="btn-full" title="F">Fullscreen</button>
       <button id="btn-controls">Controls</button>
+      <button id="btn-cheats" title="F4">Cheats</button>
       <button id="btn-reset">Reset saved data</button>
+    </div>
+    <div id="cheats" hidden>
+      <label><input type="checkbox" id="cheat-life"> Infinite life</label>
+      <label><input type="checkbox" id="cheat-energy"> Infinite special weapon energy</label>
+      <label>Game speed
+        <select id="cheat-speed"><option value="1">1× (normal)</option><option value="2">2×</option><option value="3">3×</option></select>
+      </label>
+      <button id="cheat-refill">Refill life and energy</button>
+      <button id="cheat-zenny">Max zenny</button>
     </div>
     <div id="pad"></div>
     <table id="controls" hidden>

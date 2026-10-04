@@ -1,0 +1,79 @@
+// Free-look camera state.
+//
+// The game's own camera is rigidly fixed behind the player. During normal gameplay the camera
+// override on the Java side (runtime/src/main/java/ax.java, driven by Mods.java) swings it around
+// the player by the yaw/pitch offsets kept here, and reports the player's heading each frame so
+// the left stick can steer relative to the camera (see Input).
+
+const wrap180 = (a) => ((((a + 180) % 360) + 360) % 360) - 180;
+
+export class FreeCamera {
+  /** Offsets in degrees from the game's follow camera (read by rdash.Host.cameraYaw/Pitch). */
+  yaw = 0;
+  pitch = 0;
+  /** Player heading in degrees (atan2 of the forward vector's x and z), from the game. */
+  playerYaw = 0;
+  /** While true the camera keeps its world heading when the player turns. */
+  holdWorld = false;
+  #world = 0;
+  #lastReport = -1e9;
+  #changed = false;
+
+  /** True once after the offsets changed (the game is then asked to rebuild its camera). */
+  consumeChanged() {
+    const c = this.#changed;
+    this.#changed = false;
+    return c;
+  }
+
+  /** True while the game's follow camera is on screen (not in cutscenes, menus or the map). */
+  get following() {
+    return performance.now() - this.#lastReport < 250;
+  }
+
+  /** Camera heading in world space. */
+  get worldYaw() {
+    return this.holdWorld ? this.#world : this.playerYaw + this.yaw;
+  }
+
+  /** Called by the game every frame it builds its camera. */
+  report(follow, playerYaw) {
+    if (!follow) return;
+    this.#lastReport = performance.now();
+    this.playerYaw = playerYaw;
+    if (this.holdWorld) {
+      const yaw = wrap180(this.#world - playerYaw);
+      if (yaw !== this.yaw) this.#changed = true;
+      this.yaw = yaw;
+    } else {
+      this.#world = playerYaw + this.yaw;
+    }
+  }
+
+  setHoldWorld(hold) {
+    if (hold && !this.holdWorld) this.#world = this.playerYaw + this.yaw;
+    this.holdWorld = hold;
+  }
+
+  /** @param {number} dYaw degrees to turn the view right  @param {number} dPitch degrees to tilt it down */
+  rotate(dYaw, dPitch) {
+    // turning the view right lowers the heading angle
+    if (this.holdWorld) {
+      this.#world -= dYaw;
+      this.yaw = wrap180(this.#world - this.playerYaw);
+    } else {
+      this.yaw = wrap180(this.yaw - dYaw);
+    }
+    this.pitch = Math.max(-45, Math.min(70, this.pitch + dPitch));
+    this.#changed = true;
+  }
+
+  recenter() {
+    this.yaw = 0;
+    this.pitch = 0;
+    this.#world = this.playerYaw;
+    this.#changed = true;
+  }
+}
+
+export { wrap180 };
