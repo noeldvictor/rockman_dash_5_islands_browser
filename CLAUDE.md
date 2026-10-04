@@ -47,7 +47,11 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
   current life, `n`/`p` max and current special energy, `q` zenny; `ad.p.b` = target frame rate;
   `ad.w` (`bp`) = mission, `bp.d` (`bh`) = world, `bh.a` (`av`) = player (`G` transform, `o` =
   "moved" flag that makes the game rebuild its camera, `D` = map mode), `bp.a` (`ax`) = camera,
-  `bh.b` (`ao`) = map with collision, `bp.e` (`k`) = mission status/dialog flags.
+  `bh.b` (`ao`) = map with collision, `bp.e` (`k`) = mission status/dialog flags: `b` "Return to
+  the Flutter?" (Yes on the left, No on the right, moved with left/right, confirmed with Select;
+  `t` = Yes selected), `c`/`i` notices confirmed with Select, `f` "try again?", `d`, `e`, `l`
+  other overlays. `Mods.camera` counts none of these as normal gameplay, so the stick is a d-pad
+  and A confirms while one is up.
 - **Two variants** of the English patch (`localized`: MegaMan/Servbot/Reaverbot…, `delocalized`:
   Rock/Kobun/Reaverd…) differ in 3 classes and ~100 data files, so each is recompiled separately
   and picked on the start page (`?variant=` skips the menu).
@@ -161,7 +165,9 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   brought to the standard layout by `standardPad`: a pad the browser reports with an empty
   `mapping` and six or more axes is read in the Linux driver (evdev) order — left stick, left
   trigger, right stick, right trigger, d-pad hat on axes; A, B, X, Y, LB, RB, Back, Start, Guide,
-  L3, R3 on buttons — otherwise its right stick would be read from a trigger axis. Defaults: A jump+confirm, X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
+  L3, R3 on buttons — otherwise its right stick would be read from a trigger axis. Defaults: A jump+confirm (a button
+  bound to both jumps during play and confirms elsewhere: during play the game fires the buster
+  on its Select key as well as on the buster key, mask `0x100000 | g[1]` in `av`), X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
   Select/Start soft keys, R3 re-centre camera, L3 fast-forward, L3+R3 settings menu, left
   stick = d-pad. Keyboard and
   controller bindings are per action (`ACTIONS` in `input.js`) and user-editable. The phone
