@@ -62,7 +62,8 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 | `tools/build.sh` | Patch + recompile both variants and copy data into `web/public/` |
 | `tools/patch_jar.py` | Build-time jar patch: `Thread.sleep` -> `rdash.GameHooks.sleep`, three calls -> `Mods.hud`/`sky`/`walk`, public fields, dropped overridden classes |
 | `tools/extract_assets.py` | Unpack jar / scratchpad / SD data into `build/assets/` for inspection |
-| `tools/play.mjs` | Headless Chrome driver: key presses + screenshots (`build/shots/`) |
+| `tools/play.mjs` | Headless Chrome driver: key presses, screenshots and canvas video recording (`build/shots/`) |
+| `tools/trailer/` | `record.sh` records gameplay clips with `play.mjs` (scripted keys, a simulated controller, settings switched per clip); `edit.sh` cuts them with stills from `docs/`, captions and the title music into `build/trailer/trailer.mp4` |
 | `tools/d4d/`, `tools/mbac/`, `tools/mfi/` | Dump/validate scripts for the map, model and sound formats (`check_all.mjs` in each; `tools/mfi/render.mjs` renders a `.mld` to WAV, `verify.mjs` self-checks the synth) |
 | `tools/soundfont/` | `extract.mjs`: cut the instruments the music uses out of a General MIDI SoundFont into `web/public/soundfont/` |
 | `tools/ai/` | Optional AI helpers that run on a ComfyUI server (`comfy.py`, address in `$COMFY`): `textures.py` builds the AI-upscaled texture pack, `music.py` + `mfi_abc.mjs` have YuE 2 perform a tune from its score (experimental) |
@@ -152,8 +153,11 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
 - Display is 240x240. Fonts are fixed-pitch: `SIZE_TINY` = 12 px, `SIZE_SMALL` = 16 px (half-width
   glyphs are size/2 wide); `drawString` y is the baseline. Game strings carry trailing NULs, which
   have no glyph and no width.
-- Controllers (Gamepad API, standard mapping) are polled every display frame in `input.js`.
-  Defaults: A jump+confirm, X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
+- Controllers (Gamepad API) are polled every display frame in `input.js`. Each pad is first
+  brought to the standard layout by `standardPad`: a pad the browser reports with an empty
+  `mapping` and six or more axes is read in the Linux driver (evdev) order — left stick, left
+  trigger, right stick, right trigger, d-pad hat on axes; A, B, X, Y, LB, RB, Back, Start, Guide,
+  L3, R3 on buttons — otherwise its right stick would be read from a trigger axis. Defaults: A jump+confirm, X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
   Select/Start soft keys, R3 re-centre camera, L3 fast-forward, L3+R3 settings menu, left
   stick = d-pad. Keyboard and
   controller bindings are per action (`ACTIONS` in `input.js`) and user-editable. The phone
@@ -204,9 +208,10 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   camera holds its world heading and the stick steers relative to it by pressing the game's own
   turn/forward keys (the game itself only has tank controls). `Mods.sky` adds the yaw offset to
   the 2D sky's scroll position (and wraps it; the original leaves gaps for negative headings).
-- **Direct movement** (Settings > Controls, off by default; `input.js`, `camera.js`,
-  `Mods.java`): the direction of the left stick, or of the movement keys/d-pad relative to the
-  camera, becomes the player's heading at once (`Mods.camera` rotates the player with the game's
+- **Dual-stick / direct movement** (Settings > Controls; `input.js`, `camera.js`, `Mods.java`):
+  two settings, `directStick` (on by default: left stick moves, right stick looks) and
+  `directKeys` (off by default: the movement keys/d-pad do the same, for use with mouse look).
+  The direction pushed, relative to the camera, becomes the player's heading at once (`Mods.camera` rotates the player with the game's
   own turn calls); stick deflection scales the walking speed (`Mods.walk`). While lock-on is held
   the game strafes, so they act as a d-pad there. The four movement actions never press phone
   keys directly: `Input.#syncMove` turns them into keys every time they change and every display
@@ -250,7 +255,10 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   ComfyUI server, each with a border of its own wrapped pixels so tiling stays seamless, plus a
   second version with the colour key filled in for textures drawn with cut-outs. The host finds
   a texture's picture by `<width>x<height>:<crc32 of its RGB pixels>` and loads it on demand
-  (`loadFromPack`), keeping the game's own alpha, enlarged; until it arrives the HD version shows. Field of view (`G3D.fovScale` scales the angle of full-screen perspective
+  (`loadFromPack`), keeping the game's own alpha, enlarged; until it arrives the HD version shows.
+  The textures embedded in the installed Legends 2 models are in the pack too, listed by model
+  name and image index; `legends2.js` registers each with that name and the picture is swapped
+  whole (`loadNamed`). Field of view (`G3D.fovScale` scales the angle of full-screen perspective
   views; `ax.java` widens its culling frustum to match through `Host.fov`). Blurred side bars
   (`Screen.#fillSideBars`: in widescreen, 2D-only screens get an enlarged, blurred, dimmed copy
   of the picture in the bars instead of black). Frame rate (see Rendering model). And three

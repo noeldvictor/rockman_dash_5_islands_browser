@@ -237,7 +237,10 @@ export class Legends2 {
         const convert = (mat) => {
           if (mat.map) {
             mat.map.colorSpace = THREE.NoColorSpace;
-            registerTexture(mat.map);
+            // which picture of the file this is, so the AI texture pack can replace it
+            const texture = gltf.parser.associations.get(mat.map)?.textures;
+            const image = gltf.parser.json.textures?.[texture]?.source;
+            registerTexture(mat.map, image === undefined ? null : [name, String(image)]);
           }
           // the game is unlit; PlayStation textures are colour-keyed
           const m = makeLit(new THREE.MeshBasicMaterial({ map: mat.map, alphaTest: 0.5, side: THREE.DoubleSide }),

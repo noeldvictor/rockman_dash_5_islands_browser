@@ -59,8 +59,9 @@ controller); none change the game's rules, and with everything off you get the p
 - **Free camera** — look around with the right stick, by dragging the mouse, or with the mouse
   captured (move to look, left button fires, right button locks on). Sensitivity and invert
   options.
-- **Direct movement** — push the stick (or WASD) where you want to go, relative to the camera,
-  instead of turn-and-walk tank controls. The stick also sets your walking speed.
+- **Dual-stick controls** — the left stick moves you where you push it, relative to the camera,
+  at the speed you push; the right stick looks around. The same is available for WASD with mouse
+  look. The game's original turn-and-walk tank controls are one switch away.
 - **Controller support** with rumble, and **rebindable** keyboard and controller buttons.
 - **Touch controls** — an on-screen stick and buttons, and swipe to look.
 - **Fast-forward** for dialogue and cutscenes: a button under the game, or hold Tab / L3.
@@ -143,8 +144,8 @@ Everything here can be changed under Settings > Controls.
 
 F2 original resolution, F3 widescreen, F4 cheats, M mute, F fullscreen.
 
-With "Direct movement" on (Settings > Controls), the movement keys and the left stick move
-relative to the camera instead of turning. With the mouse captured, the left button fires the
+A controller is dual-stick by default: left stick moves relative to the camera, right stick
+looks. "Camera-relative keys" (Settings > Controls) does the same for the movement keys. With the mouse captured, the left button fires the
 buster and the right button locks on. On a phone or tablet, an on-screen stick and buttons appear
 over the game, and dragging a finger on the picture looks around.
 

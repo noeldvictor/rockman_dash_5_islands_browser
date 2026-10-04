@@ -13,11 +13,18 @@ A texture whose palette index 0 is used gets a second version, `<key>.k.png`, fo
 draws it colour-keyed (index 0 transparent): there the key colour is first replaced by the
 colours around it, so the upscaler does not smear it into the visible edges.
 
+If the optional Mega Man Legends 2 models are installed (web/public/mml2/models/*.glb), the
+textures embedded in them are upscaled too. Those are texture atlases with transparent areas:
+the colour is filled into the transparent parts before upscaling, the border is a repeat of the
+edge pixels, and the result keeps the original's transparency, enlarged.
+
 Output: web/public/hd/<key>.png and manifest.json. <key> is "<width>x<height>:<crc32 of the RGB
-pixels>", which the host computes from the texture the game hands it (texfilter.js).
+pixels>", which the host computes from the texture the game hands it (texfilter.js). Legends 2
+textures are named mml2_<model>_<image index>.png and listed under "models" in the manifest.
 Everything written is derived from the game's art: web/public/hd/ is git-ignored.
 """
 import argparse
+import io
 import json
 import struct
 import sys
@@ -82,6 +89,23 @@ def wrap_pad(rgb):
     return np.pad(rgb, ((PAD, PAD), (PAD, PAD), (0, 0)), mode="wrap")
 
 
+def model_textures():
+    """The pictures embedded in the installed Legends 2 models: (model, image index, RGBA array)."""
+    out = []
+    for path in sorted((ROOT / "web" / "public" / "mml2" / "models").glob("*.glb")):
+        data = path.read_bytes()
+        length = struct.unpack_from("<I", data, 12)[0]
+        gltf = json.loads(data[20:20 + length])
+        binary = 20 + length + 8
+        for index, image in enumerate(gltf.get("images", [])):
+            view = gltf["bufferViews"][image["bufferView"]]
+            start = binary + view.get("byteOffset", 0)
+            rgba = np.array(Image.open(io.BytesIO(data[start:start + view["byteLength"]])).convert("RGBA"))
+            if rgba[..., 3].any():  # an all-transparent page has nothing to upscale
+                out.append((path.stem, index, rgba))
+    return out
+
+
 def collect():
     """Every distinct texture picture: key -> {rgb, keyed (index 0 is used), name}."""
     textures = {}
@@ -106,27 +130,34 @@ def main():
     textures = collect()
     if not textures:
         sys.exit("no textures under build/assets: run python3 tools/extract_assets.py first")
-    jobs = []  # (file stem, padded RGB picture)
-    manifest = {"model": args.model, "scale": SCALE, "textures": {}}
+    jobs = []  # (file stem, padded RGB picture, alpha to put back or None)
+    manifest = {"model": args.model, "scale": SCALE, "textures": {}, "models": {}}
     for key, t in textures.items():
         stem = key.replace(":", "_")
         keyed = bool(t["hole"].any()) and not t["hole"].all()
         manifest["textures"][key] = {"file": f"{stem}.png", "name": t["name"], **({"keyed": f"{stem}.k.png"} if keyed else {})}
-        jobs.append((stem, wrap_pad(t["rgb"])))
+        jobs.append((stem, wrap_pad(t["rgb"]), None))
         if keyed:
-            jobs.append((f"{stem}.k", wrap_pad(spread(t["rgb"], t["hole"]))))
+            jobs.append((f"{stem}.k", wrap_pad(spread(t["rgb"], t["hole"])), None))
+    for model, index, rgba in model_textures():
+        stem = f"mml2_{model}_{index}"
+        manifest["models"].setdefault(model, {})[str(index)] = f"{stem}.png"
+        hole = rgba[..., 3] == 0
+        rgb = spread(rgba[..., :3], hole) if hole.any() else rgba[..., :3]
+        jobs.append((stem, np.pad(rgb, ((PAD, PAD), (PAD, PAD), (0, 0)), mode="edge"), rgba[..., 3]))
     if args.limit:
         jobs = jobs[:args.limit]
     OUT.mkdir(parents=True, exist_ok=True)
     total = len(jobs)
     jobs = [j for j in jobs if not (OUT / f"{j[0]}.png").exists()]  # resume: skip what is already there
     (WORK / "in").mkdir(parents=True, exist_ok=True)
-    print(f"{len(textures)} distinct textures, {total} pictures, {len(jobs)} still to upscale with {args.model}", flush=True)
+    print(f"{len(textures)} distinct game textures, {sum(len(v) for v in manifest['models'].values())} Legends 2 model textures: "
+          f"{total} pictures, {len(jobs)} still to upscale with {args.model}", flush=True)
     done = total - len(jobs)
     for start in range(0, len(jobs), args.batch):
         batch = jobs[start:start + args.batch]
         graph = {"m": {"class_type": "UpscaleModelLoader", "inputs": {"model_name": args.model}}}
-        for i, (stem, picture) in enumerate(batch):
+        for i, (stem, picture, _) in enumerate(batch):
             local = WORK / "in" / f"{stem}.png"
             Image.fromarray(picture).save(local)
             remote = comfy.upload(local, f"rdash_tex_{stem}.png")
@@ -135,10 +166,13 @@ def main():
             graph[f"s{i}"] = {"class_type": "SaveImage", "inputs": {"images": [f"u{i}", 0], "filename_prefix": f"rdash/hd/b{start}_{i:02d}"}}
         result = comfy.run(graph, f"textures {start}", timeout=7200)
         files = {f[2].split("_")[1]: f for f in result["files"] if f[0] == "images"}
-        for i, (stem, picture) in enumerate(batch):
+        for i, (stem, picture, alpha) in enumerate(batch):
             up = Image.open(comfy.download(files[f"{i:02d}"], WORK / "out" / f"{stem}.png")).convert("RGB")
             pad = PAD * SCALE
-            up.crop((pad, pad, up.size[0] - pad, up.size[1] - pad)).save(OUT / f"{stem}.png", optimize=True)
+            up = up.crop((pad, pad, up.size[0] - pad, up.size[1] - pad))
+            if alpha is not None:
+                up.putalpha(Image.fromarray(alpha).resize(up.size, Image.LANCZOS))
+            up.save(OUT / f"{stem}.png", optimize=True)
             done += 1
         print(f"  {done}/{total} ({result['seconds']} s)", flush=True)
     (OUT / "manifest.json").write_text(json.dumps(manifest))

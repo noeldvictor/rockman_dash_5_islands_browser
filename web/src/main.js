@@ -85,7 +85,8 @@ async function start(variant) {
   const cheats = new Cheats();
   const applyBindings = () => input.setBindings(settings.get('keyboard'), settings.get('gamepad'));
   applyBindings();
-  settings.bind('analogMove', (v) => { input.analogMove = v; });
+  settings.bind('directStick', (v) => { input.directStick = v; });
+  settings.bind('directKeys', (v) => { input.directKeys = v; });
   settings.on('keyboard', applyBindings);
   settings.on('gamepad', applyBindings);
   // fast-forward: while its key or button is held, or switched on with the page button

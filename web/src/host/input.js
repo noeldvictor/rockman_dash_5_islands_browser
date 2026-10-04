@@ -77,6 +77,42 @@ export function bindingName(device, value) {
 
 const MOVES = new Set(['up', 'down', 'left', 'right']);
 
+/**
+ * Bring a controller to the Gamepad API's "standard" layout, whatever the browser reports:
+ * { buttons: boolean[17], axes: [leftX, leftY, rightX, rightY] }.
+ *
+ * A pad the browser does not recognise comes through with `mapping` empty and its controls in
+ * the driver's order. On Linux that is the evdev order of an Xbox-style pad: axes left X, left
+ * Y, left trigger, right X, right Y, right trigger, d-pad X, d-pad Y; buttons A, B, X, Y, LB,
+ * RB, Back, Start, Guide, left stick, right stick. Read as "standard", the right stick would be
+ * the left trigger and a stick axis, which is what makes the camera drift or not turn at all.
+ * Pads with only four axes keep the right stick on axes 2 and 3.
+ */
+function standardPad(pad) {
+  const pressed = (i) => {
+    const b = pad.buttons[i];
+    return !!b && (b.pressed || b.value > 0.5);
+  };
+  if (pad.virtual || pad.mapping === 'standard' || pad.axes.length < 6) {
+    const buttons = Array.from({ length: Math.max(17, pad.buttons.length) }, (_, i) => pressed(i));
+    return { buttons, axes: [pad.axes[0] ?? 0, pad.axes[1] ?? 0, pad.axes[2] ?? 0, pad.axes[3] ?? 0] };
+  }
+  const a = pad.axes;
+  const buttons = new Array(17).fill(false);
+  const ORDER = [0, 1, 2, 3, 4, 5, 8, 9, 16, 10, 11]; // driver button index -> standard index
+  ORDER.forEach((standard, i) => { buttons[standard] = pressed(i); });
+  // triggers rest at -1 (some drivers report 0 until first touched): pressed past the midpoint
+  buttons[6] = a[2] > 0.2;
+  buttons[7] = a[5] > 0.2;
+  if (a.length >= 8) {
+    buttons[14] = a[6] < -0.5;
+    buttons[15] = a[6] > 0.5;
+    buttons[12] = a[7] < -0.5;
+    buttons[13] = a[7] > 0.5;
+  }
+  return { buttons, axes: [a[0], a[1], a[3], a[4]] };
+}
+
 const STICK_DEADZONE = 0.45;
 // direct stick movement (Settings > Controls)
 const ANALOG_DEADZONE = 0.2;
@@ -103,12 +139,14 @@ export class Input {
   camera = null;
   #lastPoll = 0;
   /**
-   * Direct movement: during play the left stick, or the movement keys, turn the player to face
-   * where they point (relative to the camera) at once, and the stick sets the walking speed
-   * (through the camera state, read by Mods.java), instead of pressing the game's turn keys.
-   * While locked on the game strafes, so they act as a d-pad there, as in menus and cutscenes.
+   * Direct movement: during play the left stick (`directStick`, the dual-stick layout: left
+   * moves, right looks) or the movement keys (`directKeys`) turn the player to face where they
+   * point (relative to the camera) at once, and the stick sets the walking speed (through the
+   * camera state, read by Mods.java), instead of pressing the game's turn keys. While locked on
+   * the game strafes, so they act as a d-pad there, as in menus and cutscenes.
    */
-  analogMove = false;
+  directStick = true;
+  directKeys = false;
   #stick = [0, 0];
   #dirs = new Map(); // movement action id -> Set of sources holding it
   #moveKeys = new Set(); // phone keys held for the movement actions
@@ -234,7 +272,7 @@ export class Input {
     const lockedOn = (this.#state & (1 << LOCK_ON)) !== 0;
     const want = new Set();
     this.#keyHeading = NaN;
-    if (this.analogMove && cam && cam.following && !lockedOn) {
+    if (this.directKeys && cam && cam.following && !lockedOn) {
       if (x || y) {
         // up = away from the camera; screen-right is 90 degrees below the camera heading
         this.#keyHeading = cam.worldYaw - (Math.atan2(x, -y) * 180) / Math.PI;
@@ -325,11 +363,14 @@ export class Input {
     const dt = Math.min(0.1, (now - this.#lastPoll) / 1000);
     this.#lastPoll = now;
     const cam = this.camera;
-    const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()) : [];
+    const raw = navigator.getGamepads ? Array.from(navigator.getGamepads()) : [];
     // the on-screen stick behaves like a controller's left stick
     if (this.#stick[0] || this.#stick[1]) {
-      pads.push({ connected: true, virtual: true, buttons: [], axes: [this.#stick[0], this.#stick[1], 0, 0] });
+      raw.push({ connected: true, virtual: true, buttons: [], axes: [this.#stick[0], this.#stick[1], 0, 0] });
     }
+    // every pad in the standard layout: { id, virtual, buttons: boolean[], axes: [lx, ly, rx, ry] }
+    const pads = raw.filter((pad) => pad && pad.connected)
+      .map((pad) => ({ id: pad.id, virtual: !!pad.virtual, ...standardPad(pad) }));
     const down = new Set(); // phone keys held through the sticks
     const actions = new Set(); // actions held through buttons
     let name = null;
@@ -338,10 +379,9 @@ export class Input {
     let analogSpeed = 1;
     let anyButton = -1;
     for (const pad of pads) {
-      if (!pad || !pad.connected) continue;
       if (!pad.virtual) name ??= pad.id;
-      pad.buttons.forEach((b, index) => {
-        if (!(b.pressed || b.value > 0.5)) return;
+      pad.buttons.forEach((held, index) => {
+        if (!held) return;
         if (anyButton < 0) anyButton = index;
         for (const a of this.#gamepad.get(index) ?? []) actions.add(a);
       });
@@ -369,8 +409,7 @@ export class Input {
       return;
     }
     // both sticks pressed in: the settings menu
-    const combo = !this.#padWait && pads.some((pad) => pad && pad.connected && !pad.virtual
-      && MENU_COMBO.every((b) => pad.buttons[b]?.pressed));
+    const combo = !this.#padWait && pads.some((pad) => !pad.virtual && MENU_COMBO.every((b) => pad.buttons[b]));
     if (combo && !this.#combo) this.onAction?.('menu', true);
     this.#combo = combo;
     if (!this.#enabled) return; // the menu just opened
@@ -380,8 +419,7 @@ export class Input {
       analogHeading = this.#keyHeading;
     }
     for (const pad of pads) {
-      if (!pad || !pad.connected) continue;
-      const [x = 0, y = 0, rx = 0, ry = 0] = pad.axes;
+      const [x, y, rx, ry] = pad.axes;
       const following = !!cam && cam.following;
       // right stick: look around (free camera) during play, plain turning otherwise
       if (following) {
@@ -395,21 +433,21 @@ export class Input {
       // left stick: steer relative to the camera during play, d-pad otherwise
       const mag = Math.hypot(x, y);
       const lockedOn = (this.#state & (1 << LOCK_ON)) !== 0;
-      const direct = this.analogMove && following && !lockedOn;
+      const direct = this.directStick && following && !lockedOn;
       if (direct && mag > ANALOG_DEADZONE) {
         steering = true;
         // stick up = away from the camera; screen-right is 90 degrees below the camera heading
         analogHeading = cam.worldYaw - (Math.atan2(x, -y) * 180) / Math.PI;
         analogSpeed = Math.min(1, Math.max(ANALOG_MIN_SPEED, (mag - ANALOG_DEADZONE) / (0.95 - ANALOG_DEADZONE)));
         down.add(KEY.UP);
-      } else if (following && !this.analogMove && mag > STICK_DEADZONE) {
+      } else if (following && !this.directStick && mag > STICK_DEADZONE) {
         steering = true;
         const want = cam.worldYaw - (Math.atan2(x, -y) * 180) / Math.PI;
         const delta = wrap180(want - cam.playerYaw);
         if (delta > AIM_TOLERANCE) down.add(KEY.LEFT);
         else if (delta < -AIM_TOLERANCE) down.add(KEY.RIGHT);
         if (Math.abs(delta) < WALK_CONE) down.add(KEY.UP);
-      } else if (!following || (this.analogMove && lockedOn)) {
+      } else if (!following || (this.directStick && lockedOn)) {
         if (x < -STICK_DEADZONE) down.add(KEY.LEFT);
         if (x > STICK_DEADZONE) down.add(KEY.RIGHT);
         if (y < -STICK_DEADZONE) down.add(KEY.UP);
@@ -435,11 +473,11 @@ export class Input {
   #pollMenu(pads, now) {
     const held = new Set();
     for (const pad of pads) {
-      if (!pad || !pad.connected || pad.virtual) continue;
-      pad.buttons.forEach((b, index) => {
-        if ((b.pressed || b.value > 0.5) && MENU_BUTTONS[index]) held.add(MENU_BUTTONS[index]);
+      if (pad.virtual) continue;
+      pad.buttons.forEach((down, index) => {
+        if (down && MENU_BUTTONS[index]) held.add(MENU_BUTTONS[index]);
       });
-      const [x = 0, y = 0] = pad.axes;
+      const [x, y] = pad.axes;
       if (y < -0.6) held.add('up');
       if (y > 0.6) held.add('down');
       if (x < -0.6) held.add('left');

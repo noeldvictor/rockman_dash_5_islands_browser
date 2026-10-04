@@ -7,7 +7,8 @@
 //           texture pack (web/public/hd/, made by tools/ai/textures.py), loaded picture by
 //           picture as the game creates its textures. A texture is found in the pack by its
 //           size and the CRC of its RGB pixels; until its picture has arrived, and for anything
-//           the pack lacks, the `hd` version is shown
+//           the pack lacks, the `hd` version is shown. Textures that are not raw pixels (the
+//           Legends 2 models') register with their name in the pack and swap pictures whole
 // In the two filtered modes the colour of fully transparent texels (the colour key) is replaced
 // by that of their opaque neighbours, so cut-out edges do not pick up a fringe of the key colour.
 // Textures register here when created so the setting can be changed while the game runs. Only
@@ -19,7 +20,10 @@ import { crc32 } from './contentkey.js';
 const entries = new Map(); // texture -> { original: {data, width, height}|null, cache: {} }
 let mode = 'sharp';
 let maxAnisotropy = 1;
-/** The AI texture pack, once its manifest has loaded: { base, textures: { key: { file, keyed? } } } */
+/**
+ * The AI texture pack, once its manifest has loaded:
+ * { base, textures: { key: { file, keyed? } }, models: { model: { imageIndex: file } } }
+ */
 let pack = null;
 /** Diagnostics: textures taken from the pack / not found in it. */
 export const packStats = { loaded: 0, missing: 0 };
@@ -127,6 +131,21 @@ function scale2x(data, width, height) {
   return out;
 }
 
+/** A named picture (a Legends 2 model texture) from the pack; it carries its own transparency. */
+async function loadNamed(t, entry) {
+  const [model, index] = entry.packName;
+  const file = pack.models?.[model]?.[index];
+  if (!file) {
+    packStats.missing++;
+    return;
+  }
+  const response = await fetch(`${pack.base}/${file}`);
+  if (!response.ok) return;
+  entry.cache.ai = await createImageBitmap(await response.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+  packStats.loaded++;
+  if (mode === 'ai' && entries.has(t)) apply(t, entry);
+}
+
 function imageFor(t, entry) {
   const { original, cache } = entry;
   if (mode === 'sharp') return original;
@@ -155,17 +174,27 @@ function imageFor(t, entry) {
 
 function apply(t, entry) {
   const filtered = mode !== 'sharp';
-  if (entry.original) {
-    const image = imageFor(t, entry);
-    if (t.image !== image) {
-      if (t.image.width !== image.width) {
-        // a different size needs new GPU storage
-        entry.replacing = true;
-        t.dispose();
-        entry.replacing = false;
+  let image = null;
+  if (entry.original) image = imageFor(t, entry);
+  else if (entry.packName) {
+    // not raw pixels: the picture is swapped whole, when the pack has one
+    image = entry.source;
+    if (mode === 'ai') {
+      if (entry.cache.ai) image = entry.cache.ai;
+      else if (pack && !entry.requested) {
+        entry.requested = true;
+        loadNamed(t, entry).catch((e) => console.warn('[textures] pack picture failed', e));
       }
-      t.image = image;
     }
+  }
+  if (image && t.image !== image) {
+    if (t.image.width !== image.width) {
+      // a different size needs new GPU storage
+      entry.replacing = true;
+      t.dispose();
+      entry.replacing = false;
+    }
+    t.image = image;
   }
   t.magFilter = filtered ? THREE.LinearFilter : THREE.NearestFilter;
   t.minFilter = filtered ? THREE.LinearMipmapLinearFilter : THREE.NearestFilter;
@@ -174,10 +203,14 @@ function apply(t, entry) {
   t.needsUpdate = true;
 }
 
-/** Give a newly created texture the current filtering and keep it in sync with the setting. */
-export function registerTexture(t) {
+/**
+ * Give a newly created texture the current filtering and keep it in sync with the setting.
+ * @param {[string, string]} [packName]  for a texture that is not raw pixels: [model, image index]
+ *                                       under which the AI texture pack lists its picture
+ */
+export function registerTexture(t, packName = null) {
   const raw = t.isDataTexture && t.image?.data instanceof Uint8Array && t.format === THREE.RGBAFormat;
-  const entry = { original: raw ? t.image : null, cache: {}, replacing: false };
+  const entry = { original: raw ? t.image : null, source: t.image, packName, cache: {}, replacing: false };
   entries.set(t, entry);
   t.addEventListener('dispose', () => {
     if (!entry.replacing) entries.delete(t);
@@ -194,7 +227,8 @@ export async function loadTexturePack(base) {
   try {
     const response = await fetch(`${base}/manifest.json`);
     if (!response.ok) return false;
-    pack = { base, textures: (await response.json()).textures };
+    const manifest = await response.json();
+    pack = { base, textures: manifest.textures ?? {}, models: manifest.models ?? {} };
   } catch {
     return false;
   }

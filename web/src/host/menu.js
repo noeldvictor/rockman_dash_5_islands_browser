@@ -293,8 +293,10 @@ export class SettingsMenu {
       el('p', { class: `pad ${this.padName ? 'on' : ''}` }, this.padName
         ? `Controller: ${this.padName.replace(/\s*\(.*$/, '')}`
         : 'No controller detected (press a button on it)'),
-      this.#check('analogMove', 'Direct movement',
-        'The left stick or the movement keys move in the direction you push, relative to the camera; off = the game\'s tank controls'),
+      this.#check('directStick', 'Dual-stick movement',
+        'The left stick moves the way you push it, relative to the camera, and the right stick looks around; off = the game\'s tank controls'),
+      this.#check('directKeys', 'Camera-relative keys',
+        'The movement keys move relative to the camera too; best together with capturing the mouse'),
       this.#check('mouseLook', 'Capture the mouse',
         'Click the game to look with the mouse: left button buster, right button lock-on, Esc releases. Off = drag to look'),
       this.#slider('lookSensitivity', 'Look sensitivity', { min: 25, max: 250, step: 25 }),

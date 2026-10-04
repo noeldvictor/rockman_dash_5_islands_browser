@@ -19,12 +19,14 @@
 //   page:<name>          save build/shots/<name>.png (the whole page)
 //   eval:<js>            evaluate an expression in the page and print the result
 //   mash:<ms>            press random game keys for <ms> (soak test)
+//   rec:start[:<fps>]    start recording the game canvas (default 60 fps)
+//   rec:stop:<name>      stop and save build/shots/<name>.webm
 //   reload               reload the page (same browser profile, so saves persist)
 //
 // Expects a dev server (cd web && npx vite) on --url (default http://localhost:5173/).
 
 import { chromium } from '../web/node_modules/playwright-core/index.mjs';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const args = process.argv.slice(2);
@@ -116,6 +118,29 @@ for (const step of steps) {
       await page.waitForTimeout(100 + (seed % 700));
       await page.keyboard.up(k);
     }
+  } else if (cmd === 'rec' && a === 'start') {
+    await page.evaluate((fps) => {
+      const stream = document.getElementById('screen').captureStream(fps);
+      const type = ['video/webm;codecs=vp8', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t));
+      const recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 30e6 });
+      const chunks = [];
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.start(500);
+      window.__recording = { recorder, chunks };
+    }, Number(b || 60));
+  } else if (cmd === 'rec' && a === 'stop') {
+    const base64 = await page.evaluate(() => new Promise((done) => {
+      const { recorder, chunks } = window.__recording;
+      recorder.onstop = () => {
+        const reader = new FileReader();
+        reader.onload = () => done(reader.result.slice(reader.result.indexOf(',') + 1));
+        reader.readAsDataURL(new Blob(chunks, { type: 'video/webm' }));
+      };
+      recorder.stop();
+    }));
+    const file = resolve(opt.out, `${b}.webm`);
+    writeFileSync(file, Buffer.from(base64, 'base64'));
+    console.log(`video ${file}`);
   } else if (cmd === 'shot') {
     const file = resolve(opt.out, `${a}.png`);
     await page.locator('#screen').screenshot({ path: file });

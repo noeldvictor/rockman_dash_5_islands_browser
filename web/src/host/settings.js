@@ -36,7 +36,10 @@ export const DEFAULTS = {
   keyboard: null,
   /** action id -> gamepad button index[]; null = the defaults in input.js */
   gamepad: null,
-  analogMove: false,
+  /** dual-stick: the left stick moves relative to the camera, the right stick looks */
+  directStick: true,
+  /** the movement keys move relative to the camera (for use with mouse look) */
+  directKeys: false,
   /** click the game to capture the mouse: move to look, left button buster, right button lock-on */
   mouseLook: false,
   /** look speed factor for the right stick and the mouse */
@@ -62,6 +65,7 @@ export class Settings {
     if (saved && typeof saved === 'object') {
       for (const k of Object.keys(DEFAULTS)) if (k in saved) this.#values[k] = saved[k];
       if (saved.smoothMotion && !('frameRate' in saved)) this.#values.frameRate = 0; // older name
+      if (saved.analogMove && !('directKeys' in saved)) this.#values.directKeys = true; // older name
     } else {
       // first run with this store: pick up the older one-key-per-setting values
       const old = (k) => localStorage.getItem(`rdash.${k}`);
