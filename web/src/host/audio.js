@@ -59,6 +59,8 @@ export class Audio {
   #muted = false;
   #musicVolume = 1;
   #effectsVolume = 1;
+  #soundfont = null; // sampled instrument set, once fetched: { programs, drums, samples, pcm }
+  #sampled = true;
   #peak = 0;
   #counters = { played: 0, audible: 0, completed: 0, stopped: 0 };
 
@@ -201,6 +203,42 @@ export class Audio {
     return volumeGain(p.volume) * user * user;
   }
 
+  /**
+   * Fetch the sampled instrument set (gm.json + gm.bin, made by tools/soundfont/extract.mjs) if
+   * it has been generated. Music then plays with it instead of the FM patches.
+   * @param {string} base  URL of the folder
+   * @returns {Promise<boolean>} whether a set was found
+   */
+  async loadSoundfont(base) {
+    try {
+      const [json, bin] = await Promise.all([fetch(`${base}/gm.json`), fetch(`${base}/gm.bin`)]);
+      if (!json.ok || !bin.ok) return false;
+      const set = await json.json();
+      const pcm = new Int16Array(await bin.arrayBuffer());
+      this.#soundfont = { programs: set.programs, drums: set.drums, samples: set.samples, pcm };
+    } catch {
+      return false;
+    }
+    this.#postSoundfont();
+    return true;
+  }
+
+  get hasSoundfont() {
+    return !!this.#soundfont;
+  }
+
+  /** Play music with the sampled instruments (when loaded) or with the FM patches. */
+  setSampled(on) {
+    this.#sampled = !!on;
+    this.#engine?.post({ type: 'options', sampled: this.#sampled });
+  }
+
+  #postSoundfont() {
+    if (!this.#engine) return;
+    this.#engine.post({ type: 'options', sampled: this.#sampled });
+    if (this.#soundfont) this.#engine.post({ type: 'soundfont', ...this.#soundfont });
+  }
+
   /** Try to start audio now (call from a click handler of the page, e.g. an "enable sound" button). */
   unlock() {
     this.#ensureContext(true);
@@ -217,6 +255,7 @@ export class Audio {
       sampleRate: this.#ctx?.sampleRate ?? 0,
       muted: this.#muted,
       masterVolume: this.#master,
+      instruments: this.#soundfont && this.#sampled ? 'sampled' : 'fm',
       peak,
       sounds: this.#sounds.size,
       counters: { ...this.#counters },
@@ -346,6 +385,7 @@ export class Audio {
     }
     this.#engine = engine;
     this.#engineStarting = false;
+    this.#postSoundfont();
     this.#postMaster();
     this.#resumePending();
   }

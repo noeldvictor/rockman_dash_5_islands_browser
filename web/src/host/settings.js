@@ -25,6 +25,8 @@ export const DEFAULTS = {
   muted: false,
   musicVolume: 1,
   effectsVolume: 1,
+  /** 'sampled' (recorded instruments, if the set has been generated) or 'fm' (phone-style synthesis) */
+  instruments: 'sampled',
   // controls
   /** action id -> KeyboardEvent.code[]; null = the defaults in input.js */
   keyboard: null,

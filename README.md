@@ -52,6 +52,7 @@ All of these are options in the settings menu (press **F1**); none change the ga
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
 - **Fast-forward** for dialogue and cutscenes, and **fast loading** (seconds instead of half a
   minute per area).
+- **Sampled music instruments** and separate music / effects volume.
 - **Cheats** — infinite life, infinite weapon energy, max zenny, game speed.
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
   for the phone's (see [below](#optional-legends-2-character-models)).
@@ -79,7 +80,10 @@ original/
 
 ## Building and running
 
-You need a JDK (11 or newer), Node.js and Python 3.
+You need a JDK (11 or newer), Node.js and Python 3. Optional: a General MIDI SoundFont at
+`/usr/share/sounds/sf2/FluidR3_GM.sf2` (Debian/Ubuntu package `fluid-soundfont-gm`) — if it is
+there, the build cuts the instruments the music uses out of it and the music plays with recorded
+instruments instead of simple synthesis.
 
 ```bash
 tools/build.sh              # translate the game to JavaScript and copy its data (both variants)
@@ -147,7 +151,8 @@ it the phone's own models are used, and everything else works the same.
 Playable from the title screen through the missions, with saving, in both English variants. Known
 rough edges:
 
-- The music and sound are an approximation of the phone's sound chip.
+- The music is played with General MIDI instruments (sampled if you have the SoundFont,
+  synthesised otherwise), not the phone's own sound source, so it does not sound like the phone.
 - Above 15 fps, Legends 2 model animation and the 2D layer still update 15 times a second.
 - The settings menu cannot be driven from a controller.
 - The newer options were checked with screenshots and automated runs rather than long play

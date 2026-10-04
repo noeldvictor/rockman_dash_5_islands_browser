@@ -23,3 +23,6 @@ __pycache__/
 
 # Mega Man Legends 2 assets installed for the host (derived from the disc image)
 /web/public/mml2/
+
+# sampled instruments cut out of a SoundFont by tools/soundfont/extract.mjs
+/web/public/soundfont/

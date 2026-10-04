@@ -2,12 +2,13 @@
 // Renders an MFi (.mld) file to a 16-bit stereo WAV through the same code the browser runs
 // (parseMFi -> compileMFi -> MfiMixer, in 128-frame blocks like an AudioWorklet).
 //   node tools/mfi/render.mjs <file.mld> <out.wav> [--rate 44100] [--passes 2] [--seconds N]
-//                             [--solo 1,3] [--no-file-loops] [--volume 100]
+//                             [--solo 1,3] [--no-file-loops] [--volume 100] [--soundfont <dir>]
 // --passes       how many times the body of a "forever" loop is played (default 2: one seam)
 // --seconds      hard limit on the output length
 // --solo         only these channels sound (for pitch / timing checks)
 // --no-file-loops ignore the loop points in the file (play through to the end of the tracks)
 // --volume       port volume 0..100, as the game's setAttribute(SET_VOLUME, v)
+// --soundfont    directory with gm.json + gm.bin (tools/soundfont/extract.mjs): sampled instruments
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +20,12 @@ export function renderMFi(bytes, opt = {}) {
   const mfi = parseMFi(bytes);
   const song = compileMFi(mfi);
   const mixer = new MfiMixer(rate, 4, { fileLoops: opt.fileLoops !== false });
+  if (opt.soundfont) {
+    const set = JSON.parse(readFileSync(resolve(opt.soundfont, 'gm.json'), 'utf8'));
+    const bin = readFileSync(resolve(opt.soundfont, 'gm.bin'));
+    const pcm = new Int16Array(bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.length));
+    mixer.handle({ type: 'soundfont', programs: set.programs, drums: set.drums, samples: set.samples, pcm });
+  }
   const player = mixer.ports[0].player;
   player.maxLoopPasses = opt.passes ?? 2;
   if (opt.solo) player.solo = new Set(opt.solo);
@@ -99,6 +106,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     else if (a === '--volume') opt.volume = Number(args[++i]);
     else if (a === '--solo') opt.solo = args[++i].split(',').map(Number);
     else if (a === '--no-file-loops') opt.fileLoops = false;
+    else if (a === '--soundfont') opt.soundfont = args[++i];
     else files.push(a);
   }
   if (files.length !== 2) {

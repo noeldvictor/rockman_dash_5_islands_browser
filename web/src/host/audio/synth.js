@@ -9,8 +9,12 @@
 // MfiMixer (port gain, master gain, limiter).
 //
 // The phones this game ran on used a FueTrek wavetable sound source; nothing of its ROM is used
-// here. Timbres are small 2-operator FM patches chosen per General MIDI program, percussion is
-// synthesised (sine sweeps + filtered noise), and the embedded ADPCM samples are played through
+// here. There are two sets of instruments. When a sampled set has been loaded (a 'soundfont'
+// message: zones and 16-bit samples cut out of a General MIDI SoundFont by
+// tools/soundfont/extract.mjs) notes are played from it, with the SoundFont's own key ranges,
+// loops and volume envelopes. Otherwise, and for any program the set lacks, timbres are small
+// 2-operator FM patches chosen per General MIDI program and percussion is
+// synthesised (sine sweeps + filtered noise). The embedded ADPCM samples are played through
 // the phone's own 8 kHz -> 32 kHz reconstruction filter (coefficients as recovered from
 // MFiSoundLib by the MLD_Player (MIT) and vavi-sound projects). Level laws are GM-style
 // (amplitude = (value / max)^2) — an assumption, the native gain tables were not used.
@@ -135,6 +139,7 @@ const SILENT = 0.003; // envelope level (-50 dB) at which a voice is dropped
 const FM_LEVEL = 0.2;
 const DRUM_LEVEL = 0.25;
 const PCM_LEVEL = 0.62;
+const SF_LEVEL = 0.5; // sampled instruments (full-scale recordings)
 const sq = (v) => v * v;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -285,6 +290,7 @@ class Channel {
 
   reset() {
     this.patch = PATCH.piano;
+    this.program = 0;
     this.percussion = false;
     this.volume = 63;
     this.pan = 32;
@@ -659,6 +665,111 @@ class PcmVoice {
   }
 }
 
+/**
+ * A note played from the sampled instrument set: one zone of a SoundFont preset. The sample is
+ * read at the pitch of the key (linear interpolation), looped if the zone has a loop, and shaped
+ * by the zone's attack / hold / decay / sustain / release envelope (SoundFont decay and release
+ * times are the time to fall 100 dB). Percussion ignores note-off, like General MIDI drums.
+ */
+class SfVoice {
+  kind = 3;
+
+  init(player, ch, key, vel, gate, zone, sf, percussion) {
+    const sr = player.sampleRate;
+    const sample = sf.samples[zone.s];
+    this.player = player;
+    this.ch = ch;
+    this.key = key;
+    this.gate = percussion ? Infinity : gate;
+    this.released = false;
+    this.percussion = percussion;
+    this.age = 0;
+    this.pcm = sf.pcm;
+    this.base = sample.o;
+    this.last = sample.n - 1;
+    this.loopStart = zone.loop ? zone.loop[0] : -1;
+    this.loopEnd = zone.loop ? Math.min(zone.loop[1], sample.n - 2) : 0;
+    this.semis = (key - zone.root) * zone.scale;
+    this.rate = sample.rate / sr;
+    this.pos = 0;
+    this.velGain = sq(vel / 63);
+    this.zoneGain = zone.gain;
+    this.zonePan = zone.pan;
+    this.choke = zone.excl ?? 0;
+    this.env = 0;
+    this.stage = 0; // 0 attack, 1 hold, 2 decay, 3 sustain, 4 release
+    this.aInc = 1 / Math.max(1, zone.a * sr);
+    this.hold = zone.h * sr;
+    this.dCoef = Math.exp(-11.51 / (Math.max(0.002, zone.d) * sr));
+    this.sus = zone.sus;
+    this.rCoef = Math.exp(-11.51 / (Math.max(0.01, zone.r) * sr));
+    return this;
+  }
+
+  release() {
+    this.released = true;
+    this.gate = Infinity;
+    if (!this.percussion) this.stage = 4;
+  }
+
+  /** Fade out quickly (a stopped port, a choked hi-hat). */
+  kill(sr, seconds = 0.008) {
+    this.released = true;
+    this.gate = Infinity;
+    this.stage = 4;
+    this.rCoef = Math.exp(-1 / (seconds * sr));
+  }
+
+  render(L, R, start, n) {
+    const ch = this.ch, pcm = this.pcm, base = this.base, last = this.last;
+    const loopStart = this.loopStart, loopEnd = this.loopEnd, loopLength = loopEnd - loopStart;
+    const step = this.rate * Math.pow(2, (this.semis + (this.percussion ? 0 : ch.bend)) / 12);
+    panGains(clamp((ch.pan - 32) / 32 + this.zonePan, -1, 1), PG);
+    const g = (SF_LEVEL / 32768) * this.velGain * this.zoneGain * sq(ch.volume / 63) * this.player.masterGain;
+    const gl = g * PG[0], gr = g * PG[1];
+    const { aInc, dCoef, rCoef, sus } = this;
+    let pos = this.pos, env = this.env, stage = this.stage, hold = this.hold;
+    const end = start + n;
+    let alive = true;
+    for (let i = start; i < end; i++) {
+      let k = pos | 0;
+      if (loopStart >= 0 && k >= loopEnd) {
+        pos -= loopLength;
+        k = pos | 0;
+      } else if (k >= last) {
+        alive = false;
+        break;
+      }
+      if (stage === 0) {
+        env += aInc;
+        if (env >= 1) {
+          env = 1;
+          stage = 1;
+        }
+      } else if (stage === 1) {
+        if (--hold <= 0) stage = 2;
+      } else if (stage === 2) {
+        env *= dCoef;
+        if (env <= sus) {
+          env = sus;
+          stage = 3;
+        }
+      } else if (stage === 4) env *= rCoef;
+      const a = pcm[base + k];
+      const s = (a + (pcm[base + k + 1] - a) * (pos - k)) * env;
+      L[i] += s * gl;
+      R[i] += s * gr;
+      pos += step;
+    }
+    this.pos = pos;
+    this.env = env;
+    this.stage = stage;
+    this.hold = hold;
+    this.age += n;
+    return alive && !(stage >= 2 && env < SILENT);
+  }
+}
+
 // ---- player (one port) ------------------------------------------------------------------------
 
 const DEFAULT_SEC_PER_TICK = 60 / (125 * 48); // native default: 125 bpm, timebase 48
@@ -673,7 +784,9 @@ export class MfiPlayer {
     this.sampleRate = sampleRate;
     this.fileLoops = options.fileLoops !== false;
     this.voices = [];
-    this.pool = [[], [], []];
+    this.pool = [[], [], [], []];
+    /** Sampled instrument set shared by all ports (set by the mixer), or null: FM patches. */
+    this.soundfont = null;
     this.channels = [];
     for (let i = 0; i < 16; i++) this.channels.push(new Channel());
     this.seed = 0x1234567;
@@ -727,7 +840,8 @@ export class MfiPlayer {
   }
 
   alloc(kind) {
-    return this.pool[kind].pop() ?? (kind === 0 ? new FmVoice() : kind === 1 ? new DrumVoice() : new PcmVoice());
+    return this.pool[kind].pop()
+      ?? (kind === 0 ? new FmVoice() : kind === 1 ? new DrumVoice() : kind === 2 ? new PcmVoice() : new SfVoice());
   }
 
   addVoice(v) {
@@ -759,19 +873,34 @@ export class MfiPlayer {
         const gate = Math.max(1, e.gate * this.secPerTick * sr);
         // the native scheduler refreshes the gate of a key that is still held instead of
         // striking it again
-        let held = null;
+        let held = false;
         for (const v of this.voices) {
-          if (v.ch === ch && v.key === e.key && !v.released && v.kind !== 2) {
-            held = v;
-            break;
+          // (a sampled note can be several voices; sampled percussion is never "held")
+          if (v.ch === ch && v.key === e.key && !v.released && v.kind !== 2 && !v.percussion) {
+            v.gate = gate;
+            held = true;
           }
         }
-        if (held) {
-          held.gate = gate;
-          break;
-        }
+        if (held) break;
         if (e.vel === 0) break;
-        if (e.perc || ch.percussion) {
+        const percussion = e.perc || ch.percussion;
+        const sf = this.soundfont;
+        const zones = sf ? (percussion ? sf.drums[e.key] : sf.programs[ch.program]) : null;
+        if (zones) {
+          // sampled instruments: every zone covering the key sounds
+          let played = false;
+          for (const zone of zones) {
+            if (e.key < zone.lo || e.key > zone.hi) continue;
+            const v = this.alloc(3).init(this, ch, e.key, e.vel, gate, zone, sf, percussion);
+            if (v.choke) {
+              for (const o of this.voices) if (o.kind === 3 && o.choke === v.choke && o.ch === ch) o.kill(sr, 0.01);
+            }
+            this.addVoice(v);
+            played = true;
+          }
+          if (played) break;
+        }
+        if (percussion) {
           const v = this.alloc(1).init(this, ch, e.key, e.vel, gate);
           if (v.choke) {
             for (const o of this.voices) if (o.kind === 1 && o.choke === v.choke && o.ch === ch) o.kill(sr, 0.01);
@@ -783,6 +912,7 @@ export class MfiPlayer {
       case OP.PROGRAM: {
         const ch = this.channels[e.ch];
         ch.percussion = e.perc;
+        ch.program = e.value & 127;
         ch.patch = PROGRAM_PATCH[e.value & 127] ?? PATCH.piano;
         break;
       }
@@ -922,7 +1052,10 @@ export class MfiPlayer {
  *   { type: 'stop', port }                           stop, short fade
  *   { type: 'volume', port, value }                  port volume 0..1 (already perceptual)
  *   { type: 'master', value }                        master gain 0..1
- *   { type: 'options', fileLoops }                   honour "forever" loop points
+ *   { type: 'options', fileLoops, sampled }          honour "forever" loop points; use the
+ *                                                    sampled instrument set when one is loaded
+ *   { type: 'soundfont', programs, drums, samples, pcm }   the sampled instrument set (see
+ *                                                    tools/soundfont/extract.mjs; pcm: Int16Array)
  * render() returns the events that happened: { type: 'complete' | 'loop', port, gen }.
  */
 const NO_EVENTS = Object.freeze([]);
@@ -930,7 +1063,8 @@ const NO_EVENTS = Object.freeze([]);
 export class MfiMixer {
   constructor(sampleRate, portCount = 4, options = {}) {
     this.sampleRate = sampleRate;
-    this.options = { fileLoops: options.fileLoops !== false };
+    this.options = { fileLoops: options.fileLoops !== false, sampled: options.sampled !== false };
+    this.soundfont = null;
     this.ports = [];
     for (let i = 0; i < portCount; i++) this.ports.push(this.newPort());
     this.songs = new Map();
@@ -946,7 +1080,14 @@ export class MfiMixer {
   }
 
   newPort() {
-    return { player: new MfiPlayer(this.sampleRate, this.options), gen: 0, volume: 1, volumeNow: 1 };
+    const player = new MfiPlayer(this.sampleRate, this.options);
+    player.soundfont = this.options.sampled ? this.soundfont ?? null : null;
+    return { player, gen: 0, volume: 1, volumeNow: 1 };
+  }
+
+  /** Notes started from now on use the sampled set, or the FM patches (sounding notes ring out). */
+  #applySoundfont() {
+    for (const p of this.ports) p.player.soundfont = this.options.sampled ? this.soundfont : null;
   }
 
   port(index) {
@@ -981,6 +1122,12 @@ export class MfiMixer {
       case 'master': this.master = msg.value; break;
       case 'options':
         if (msg.fileLoops !== undefined) this.options.fileLoops = !!msg.fileLoops;
+        if (msg.sampled !== undefined) this.options.sampled = !!msg.sampled;
+        this.#applySoundfont();
+        break;
+      case 'soundfont':
+        this.soundfont = { programs: msg.programs, drums: msg.drums, samples: msg.samples, pcm: msg.pcm };
+        this.#applySoundfont();
         break;
       default: break;
     }

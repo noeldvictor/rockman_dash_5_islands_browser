@@ -3,6 +3,7 @@
 #   1. redirect the game's frame-limiter sleep (tools/patch_jar.py), then recompile the bytecode
 #      + our DoJa runtime to JavaScript (TeaVM), once per variant
 #   2. copy the original game data next to it
+#   3. cut the instruments the music uses out of a General MIDI SoundFont, if one is installed
 # Usage: tools/build.sh [localized|delocalized ...]   (default: both)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -26,4 +27,8 @@ mkdir -p web/public/data/sdcard
 cp original/sdcard/*.BIN web/public/data/sdcard/
 
 [ -d web/node_modules ] || (cd web && npm install --no-audit --no-fund)
+
+# sampled instruments for the music, if a General MIDI SoundFont is installed (optional: without
+# them the host uses its FM patches)
+node tools/soundfont/extract.mjs --variant "${variants[0]}" | head -1 || true
 echo "done. run: (cd web && npm run dev)"

@@ -37,7 +37,7 @@ export class SettingsMenu {
     this.tab = 'video';
     this.padName = null;
     /** Rows that only apply when something optional is installed: id -> boolean */
-    this.available = { legends2: false };
+    this.available = { legends2: false, soundfont: false };
     this.#listening = null;
     root.hidden = true;
     // keys typed in the menu never reach the game or the page shortcuts
@@ -147,6 +147,10 @@ export class SettingsMenu {
       this.#check('muted', 'Mute', 'M'),
       this.#slider('musicVolume', 'Music'),
       this.#slider('effectsVolume', 'Sound effects'),
+      this.available.soundfont
+        ? this.#select('instruments', 'Music instruments', [['sampled', 'Sampled'], ['fm', 'Synthesised (FM)']],
+          'Sampled plays recorded instruments; FM is the simpler built-in synthesis')
+        : el('p', { class: 'note' }, 'Sampled instruments are not installed (see tools/soundfont/); music uses the built-in FM synthesis.'),
     ];
   }
 
