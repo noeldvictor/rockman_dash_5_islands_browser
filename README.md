@@ -14,6 +14,8 @@ optional modern upgrades: widescreen, 60 fps, controller support, cel shading an
 1. Put your own copy of the game's files in the `gamefiles` folder (zips are fine).
 2. Run `./setup_script.sh`. It checks your tools, sorts the files, builds the game and opens it.
 3. Next time, run `./play.sh`.
+4. Optional: `./package_html.sh` packs the whole game into one HTML file you can copy to any
+   device or archive, and open straight in a browser.
 
 **[The easy setup guide](easy_setup_guide.md)** walks through it step by step.
 
@@ -196,6 +198,7 @@ it the most complete description of the project.
 | `runtime/` | The phone's programming interface re-created in Java, and the TeaVM build |
 | `web/` | The web page: renderer, input, sound, storage (`src/host/`), file-format parsers (`src/formats/`), optional asset swaps (`src/mods/`) |
 | `setup_script.sh`, `play.sh` | One-step setup for Linux, and the command to start the game afterwards |
+| `package_html.sh` | Packs the built game into one self-contained HTML file |
 | `gamefiles/` | Where you drop your game files for the setup script (never committed) |
 | `tools/` | Build script, jar patcher, test driver and video recorder, format dump tools, SoundFont and Legends 2 extractors, AI texture and music helpers, trailer scripts |
 | `docs/` | The pictures on this page |

@@ -357,7 +357,8 @@ export class Audio {
       if (wanted === 'script') throw new Error('requested');
       if (!ctx.audioWorklet || typeof AudioWorkletNode === 'undefined') throw new Error('AudioWorklet is not available');
       // the synthesiser module has no imports, so it can be loaded as a worklet module as it is
-      await ctx.audioWorklet.addModule(new URL('./audio/synth.js', import.meta.url));
+      const module = new URL('./audio/synth.js', import.meta.url).href;
+      await ctx.audioWorklet.addModule(globalThis.rdashResolve?.(module, true) ?? module);
       const node = new AudioWorkletNode(ctx, WORKLET_NAME, {
         numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { ports, fileLoops },
       });

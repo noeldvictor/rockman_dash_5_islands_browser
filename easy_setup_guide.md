@@ -67,6 +67,25 @@ Next time, just run:
 Press **Ctrl+C** in the terminal to stop the game. Your saves are kept in your browser; the
 settings menu's Extras tab can export them to a file.
 
+## Take it with you: one file
+
+Once the game is set up you can pack it into a single file that plays on its own:
+
+```bash
+./package_html.sh
+```
+
+That writes `build/package/Rockman-DASH-5-Islands.html` (about 40 MB). Copy it to another
+computer, a Steam Deck or a phone, or keep it as an archive, and open it in a browser: no
+installation and no internet needed. `./package_html.sh --small` leaves out the recorded music
+instruments (about 12 MB); `--full` adds the AI textures and Legends 2 models if you have them
+(about 140 MB, better kept for desktops).
+
+Two things to know: the file contains your game files, so keep it to yourself; and saves live
+in the browser of the device you play on (the settings menu's Extras tab can export them). On
+Android, open the file with Chrome; saves there may not survive between sessions, so export
+them if they matter.
+
 ## If something goes wrong
 
 | What you see | What to do |

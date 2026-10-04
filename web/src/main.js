@@ -319,7 +319,10 @@ async function start(variant) {
     settings.bind('legends2', (v) => { legends2.enabled = v; });
   }
 
-  const game = await import(/* @vite-ignore */ new URL(`game/${variant}/game.js`, document.baseURI).href);
+  // (rdashResolve: in the single-file build the game's files are embedded in the page; see
+  // tools/package/single_html.mjs)
+  const gameUrl = new URL(`game/${variant}/game.js`, document.baseURI).href;
+  const game = await import(/* @vite-ignore */ globalThis.rdashResolve?.(gameUrl) ?? gameUrl);
   $('status').hidden = true;
   $('stage').hidden = false;
   game.main([], (err) => {
