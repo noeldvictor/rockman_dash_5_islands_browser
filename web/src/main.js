@@ -106,8 +106,9 @@ async function start(variant) {
     else if (id === 'fast') {
       fastHeld = down;
       applyFast();
-    }
+    } else if (id === 'menu' && down) menu.toggle();
   };
+  input.onMenuNav = (command) => menu.nav(command);
   settings.bind('lookSensitivity', (v) => { camera.sensitivity = v; });
   settings.bind('invertY', (v) => { camera.invertY = v; });
   settings.bind('cameraDistance', (v) => { camera.distance = v; });

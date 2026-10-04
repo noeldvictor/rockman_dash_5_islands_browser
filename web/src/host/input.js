@@ -39,7 +39,17 @@ export const ACTIONS = [
   { id: 'soft2', label: 'Right soft key (Items)', keys: [KEY.SOFT2], kb: ['KeyE', 'Escape'], pad: [9] },
   { id: 'recenter', label: 'Re-centre camera', host: true, kb: ['KeyR'], pad: [11] },
   { id: 'fast', label: 'Fast-forward (hold)', host: true, kb: ['Tab'], pad: [10] },
+  // F1 always opens the menu as well, and so does pressing both sticks in together
+  { id: 'menu', label: 'Settings menu', host: true, kb: [], pad: [16] },
 ];
+
+/** Standard-mapping buttons that drive the settings menu while it is open. */
+const MENU_BUTTONS = { 12: 'up', 13: 'down', 14: 'left', 15: 'right', 0: 'accept', 1: 'back', 9: 'back', 16: 'back', 4: 'prev', 5: 'next' };
+const MENU_REPEAT = new Set(['up', 'down', 'left', 'right']);
+const MENU_REPEAT_DELAY = 380; // ms before a held direction repeats, then every MENU_REPEAT_RATE
+const MENU_REPEAT_RATE = 110;
+/** Both sticks pressed in: opens the settings menu. */
+const MENU_COMBO = [10, 11];
 
 /** The phone keypad itself; an action bound to one of these codes takes precedence. */
 const KEYPAD = {
@@ -105,7 +115,15 @@ export class Input {
   #keyHeading = NaN; // direct movement from keys: world heading, NaN when not in use
   /** False while the settings menu is open: the game then sees no input at all. */
   #enabled = true;
-  /** Called for page-side actions ('recenter', 'fast'): (id, down) => void */
+  /**
+   * Called while the settings menu is open (input disabled) with a controller's navigation:
+   * 'up' | 'down' | 'left' | 'right' | 'accept' | 'back' | 'prev' | 'next'
+   */
+  onMenuNav = null;
+  #menuHeld = new Map(); // command -> time of its next repeat
+  #combo = false; // the menu combo is being held
+  #padWait = false; // ignore controller buttons until they have all been released
+  /** Called for page-side actions ('recenter', 'fast', 'menu'): (id, down) => void */
   onAction = null;
   #keyboard = new Map(); // KeyboardEvent.code -> actions
   #gamepad = new Map(); // button index -> actions
@@ -175,6 +193,9 @@ export class Input {
   /** The game sees no keys while disabled (the settings menu is open). */
   setEnabled(on) {
     this.#enabled = !!on;
+    // the button that opened or closed the menu is still down: wait for it to be let go
+    this.#padWait = true;
+    this.#menuHeld.clear();
     if (on) return;
     this.releaseAll();
     if (this.camera) {
@@ -339,7 +360,20 @@ export class Input {
       }
       return;
     }
-    if (!this.#enabled) return;
+    if (this.#padWait) {
+      if (anyButton >= 0) actions.clear();
+      else this.#padWait = false;
+    }
+    if (!this.#enabled) {
+      if (!this.#padWait) this.#pollMenu(pads, now);
+      return;
+    }
+    // both sticks pressed in: the settings menu
+    const combo = !this.#padWait && pads.some((pad) => pad && pad.connected && !pad.virtual
+      && MENU_COMBO.every((b) => pad.buttons[b]?.pressed));
+    if (combo && !this.#combo) this.onAction?.('menu', true);
+    this.#combo = combo;
+    if (!this.#enabled) return; // the menu just opened
     this.#syncMove();
     if (!Number.isNaN(this.#keyHeading)) {
       steering = true;
@@ -395,6 +429,33 @@ export class Input {
     for (const a of this.#padActions) if (!actions.has(a)) this.#actionUp(a, 'pad');
     this.#padActions = actions;
     if (this.#rumbling) this.#pulse();
+  }
+
+  /** Controller navigation of the settings menu: buttons and the left stick, with key repeat. */
+  #pollMenu(pads, now) {
+    const held = new Set();
+    for (const pad of pads) {
+      if (!pad || !pad.connected || pad.virtual) continue;
+      pad.buttons.forEach((b, index) => {
+        if ((b.pressed || b.value > 0.5) && MENU_BUTTONS[index]) held.add(MENU_BUTTONS[index]);
+      });
+      const [x = 0, y = 0] = pad.axes;
+      if (y < -0.6) held.add('up');
+      if (y > 0.6) held.add('down');
+      if (x < -0.6) held.add('left');
+      if (x > 0.6) held.add('right');
+    }
+    for (const command of held) {
+      const next = this.#menuHeld.get(command);
+      if (next === undefined) {
+        this.#menuHeld.set(command, now + MENU_REPEAT_DELAY);
+        this.onMenuNav?.(command);
+      } else if (MENU_REPEAT.has(command) && now >= next) {
+        this.#menuHeld.set(command, now + MENU_REPEAT_RATE);
+        this.onMenuNav?.(command);
+      }
+    }
+    for (const command of this.#menuHeld.keys()) if (!held.has(command)) this.#menuHeld.delete(command);
   }
 
   /** The phone's vibrator (PhoneSystem DEV_VIBRATOR), mapped to controller rumble. */

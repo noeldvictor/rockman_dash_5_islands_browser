@@ -147,7 +147,8 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   have no glyph and no width.
 - Controllers (Gamepad API, standard mapping) are polled every display frame in `input.js`.
   Defaults: A jump+confirm, X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
-  Select/Start soft keys, R3 re-centre camera, L3 fast-forward, left stick = d-pad. Keyboard and
+  Select/Start soft keys, R3 re-centre camera, L3 fast-forward, L3+R3 settings menu, left
+  stick = d-pad. Keyboard and
   controller bindings are per action (`ACTIONS` in `input.js`) and user-editable. The phone
   vibrator (`PhoneSystem` attribute 1) drives rumble.
 - Key state is a bit mask by key code: 0–9 digits, 10 `*`, 11 `#`, 16 left, 17 up, 18 right,
@@ -215,7 +216,12 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   (`localStorage['rdash.settings']`) with change listeners; modules subscribe in `main.js`. The
   game is paused while the menu is open (the game thread's per-frame wake-up is withheld) and
   sees no input. F2/F3/M/F/F4 remain as shortcuts. `?scale=` and `?legends2=` override settings
-  without saving them.
+  without saving them. A controller opens it with both sticks pressed in (or the Guide button,
+  the rebindable `menu` action) and drives it: while input is disabled `Input.#pollMenu` turns
+  the d-pad / left stick, A, B / Start and L1 / R1 into `onMenuNav` commands with key repeat, and
+  `SettingsMenu.nav` moves a highlight (`.navfocus`) over the open tab's controls, steps sliders
+  and lists, clicks buttons and switches tabs. After the menu opens or closes, controller
+  buttons are ignored until all are released, so the closing press does not reach the game.
 - **Rebindable controls**: any number of keys/buttons per action, edited in the menu.
 - **On-screen controls** (`touch.js`, markup in `index.html`): on touch devices (or `?touch`) a
   virtual stick and action buttons sit over the bottom corners of the game. The stick feeds
@@ -336,12 +342,13 @@ still read 15 times a second.
 
 Keep this section current.
 
-- Port extras: widescreen with edge-pinned HUD, free-look camera with camera-relative stick
-  steering and a sky that turns with it, direct analog stick movement, controller support with
-  rumble, settings menu with rebindable controls, fast-forward, 30/60 fps by interpolation,
-  optional lighting, cel shading and shadows, texture filter and resolution options, separate
-  music/effects volume, sampled instruments for the music, cheat menu, fast loading, optional
-  Legends 2 character models.
+- Port extras (all optional, see "Port features beyond the original"): widescreen with
+  edge-pinned HUD and blurred side bars; resolution, texture filter (sharp / smooth / HD), field
+  of view; 30/60 fps by interpolation; lighting, cel shading, shadows; free-look camera with
+  sensitivity, inversion, distance and mouse capture; direct movement from the stick or the
+  keys; controller support with rumble, rebindable controls, a controller-driven settings menu;
+  touch stick, buttons and swipe-look; fast-forward; sampled music instruments and separate
+  music/effects volume; save export/import; cheats; fast loading; Legends 2 character models.
 - Working: recompilation of both variants, boot, title/menus, save loading from the dumped
   scratchpad, SD-card island data, 2D UI and dialogue, 3D maps, character models and animation,
   effects, collision, keyboard/gamepad/touch input, save persistence (IndexedDB), the game-server
@@ -349,11 +356,14 @@ Keep this section current.
   mute (M), fast loading screens, music and sound effects.
 - Known gaps: only what the game uses is implemented — it never adds lights or fog, only draws
   quad `Primitive`s, and never overrides blend/transparency on a `Group`, so lit materials,
-  point/line/sprite primitives and those overrides are absent. The game logic runs at its
-  native 15 fps; higher frame rates are interpolated. The
-  settings menu has no controller navigation. Free-look pitch does not move the 2D sky. Mouse
-  capture has not been exercised (headless tests cannot lock the pointer). The new options were checked with screenshots and a simulated
-  gamepad, not played by a person.
+  point/line/sprite primitives and those overrides are absent. The game logic runs at its native
+  15 fps; higher frame rates are interpolated, and the 2D layer and input still step at 15.
+  Free-look pitch does not move the 2D sky.
+- How it was checked: everything above was verified with screenshots, numeric checks and
+  simulated input (keyboard, a fake gamepad, synthetic touch events) in headless Chrome. Not yet
+  checked by a person: how the music sounds, how interpolated motion looks, mouse capture and
+  real fullscreen (headless Chrome can do neither), touch on a real device, and a play-through
+  from start to finish.
 - Legends 2 replacement: MegaMan, Roll, Tron and Teisel are replaced in the New Game intro
   cutscenes and the in-game player (assembled from parts) is replaced during play; poses match
   the phone models' at the same frame. The Servbot mapping has not been seen in a test. The

@@ -51,6 +51,74 @@ export class SettingsMenu {
 
   #listening;
   #rendering = false;
+  #navIndex = -1; // control highlighted by the controller, among #controls(); -1 = none yet
+
+  /** Everything in the open tab a controller can move to, in reading order. */
+  #navTargets() {
+    return [...this.root.querySelectorAll('.body input, .body select, .body button')];
+  }
+
+  #highlight(index) {
+    const targets = this.#navTargets();
+    this.root.querySelector('.navfocus')?.classList.remove('navfocus');
+    if (!targets.length) {
+      this.#navIndex = -1;
+      return null;
+    }
+    this.#navIndex = Math.max(0, Math.min(targets.length - 1, index));
+    const target = targets[this.#navIndex];
+    target.classList.add('navfocus');
+    target.scrollIntoView({ block: 'nearest' });
+    return target;
+  }
+
+  /**
+   * Controller navigation (see Input.onMenuNav): up/down move between controls, left/right
+   * change a slider or a list (and otherwise move too), accept presses or toggles, prev/next
+   * switch tabs, back closes.
+   */
+  nav(command) {
+    if (!this.isOpen) return;
+    if (command === 'back') {
+      if (this.#listening) this.#render();
+      else this.close();
+      return;
+    }
+    if (this.#listening) return; // waiting for a key or button to bind
+    if (command === 'prev' || command === 'next') {
+      const i = TABS.findIndex(([id]) => id === this.tab);
+      this.tab = TABS[(i + (command === 'next' ? 1 : TABS.length - 1)) % TABS.length][0];
+      this.#navIndex = 0;
+      this.#render();
+      return;
+    }
+    const targets = this.#navTargets();
+    const target = targets[this.#navIndex];
+    if (!target) {
+      this.#highlight(0);
+      return;
+    }
+    const step = command === 'down' || command === 'right' ? 1 : -1;
+    if (command === 'up' || command === 'down') {
+      this.#highlight(this.#navIndex + step);
+    } else if (command === 'left' || command === 'right') {
+      if (target.type === 'range') {
+        if (step > 0) target.stepUp();
+        else target.stepDown();
+        target.dispatchEvent(new Event('input'));
+      } else if (target.tagName === 'SELECT') {
+        const next = target.selectedIndex + step;
+        if (next < 0 || next >= target.options.length) return;
+        target.selectedIndex = next;
+        target.dispatchEvent(new Event('change'));
+      } else this.#highlight(this.#navIndex + step);
+    } else if (command === 'accept') {
+      if (target.tagName === 'SELECT') {
+        target.selectedIndex = (target.selectedIndex + 1) % target.options.length;
+        target.dispatchEvent(new Event('change'));
+      } else if (target.type !== 'range') target.click();
+    }
+  }
 
   get isOpen() {
     return !this.root.hidden;
@@ -67,6 +135,7 @@ export class SettingsMenu {
   close() {
     if (!this.isOpen) return;
     this.#stopListening();
+    this.#navIndex = -1;
     this.root.hidden = true;
     this.onToggle?.(false);
   }
@@ -294,7 +363,9 @@ export class SettingsMenu {
       el('div', { class: 'tabs' }, ...tabs,
         el('button', { type: 'button', class: 'close', title: 'Close (Esc)', onclick: () => this.close() }, '×')),
       el('div', { class: `body ${this.tab}` }, ...body),
-      el('div', { class: 'foot' }, 'The game is paused while this menu is open. F1 or Esc closes it.')));
+      el('div', { class: 'foot' }, 'The game is paused while this menu is open. F1 or Esc closes it. '
+        + 'Controller: D-pad or stick to move and change, A to select, L1 / R1 for tabs, B to close.')));
     this.root.querySelector('.panel').focus();
+    if (this.#navIndex >= 0) this.#highlight(this.#navIndex); // keep the controller's place
   }
 }

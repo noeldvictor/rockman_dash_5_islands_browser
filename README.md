@@ -37,8 +37,8 @@ This project has three goals:
 
 ## What the port adds
 
-All of these are options in the settings menu (press **F1**, or the ⚙ button); none change the
-game's rules, and with everything off you get the phone's picture.
+All of these are options in the settings menu (press **F1**, the ⚙ button, or both sticks on a
+controller); none change the game's rules, and with everything off you get the phone's picture.
 
 **Picture**
 
@@ -133,7 +133,7 @@ Everything here can be changed under Settings > Controls.
 | Confirm | Enter | A / Cross or B / Circle |
 | Map / Back, Items (the labels under the game; also clickable) | Q, E | Select, Start |
 | Fast-forward (hold; or click the button under the game) | Tab | L3 |
-| Settings | F1 | — |
+| Settings menu | F1 | Press both sticks in (then D-pad, A, B, L1 / R1) |
 
 F2 original resolution, F3 widescreen, F4 cheats, M mute, F fullscreen.
 
@@ -195,7 +195,6 @@ yet. Known rough edges:
 - The music is played with General MIDI instruments (sampled if you have the SoundFont,
   synthesised otherwise), not the phone's own sound source, so it does not sound like the phone.
 - Above 15 fps, the 2D layer (HUD, dialogue) still updates 15 times a second.
-- The settings menu cannot be driven from a controller.
 - Most options were checked with screenshots and automated runs rather than long play sessions.
   Touch controls and mouse capture have only been tried with simulated input, not on real
   devices, and nobody has yet judged the music by ear.
