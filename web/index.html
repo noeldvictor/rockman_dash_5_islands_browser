@@ -68,18 +68,35 @@
     #settings .add.listening { color: #e6c15a; border-color: #b08a2e; }
     #settings .foot { padding: .45rem 1rem; border-top: 1px solid #2f3747; color: #6f7889; font-size: .8rem; }
     #help { color: #5f6779; font-size: .8rem; text-align: center; }
-    #touch { display: none; width: min(100vw, 30rem); box-sizing: border-box; padding: .5rem .75rem;
-      justify-content: space-between; align-items: center; touch-action: none; user-select: none;
-      -webkit-user-select: none; }
+    #view { position: relative; display: block; line-height: 0; }
+    #screen { touch-action: none; }
+    #soft span { cursor: pointer; min-width: 5rem; user-select: none; -webkit-user-select: none; touch-action: none; }
+    #soft span:last-child { text-align: right; }
+    #soft span.down { color: #e6c15a; }
+    /* toolbar over the game: in fullscreen (appears when the pointer moves) and on touch devices */
+    #overlay { display: none; position: absolute; top: .4rem; right: .4rem; gap: .3rem; z-index: 3;
+      opacity: 0; pointer-events: none; transition: opacity .3s; line-height: 1.2; }
+    #stage:fullscreen #overlay, body.touch #overlay { display: flex; }
+    #stage.active #overlay, body.touch #overlay { opacity: .85; pointer-events: auto; }
+    #overlay button { font: 600 .9rem system-ui, sans-serif; padding: .35rem .6rem; border-radius: .5rem;
+      border: 1px solid #2f3747; background: rgba(17, 21, 30, .75); color: #d7dce5; cursor: pointer; }
+    #overlay button.on { border-color: #b08a2e; color: #e6c15a; }
+    /* touch controls, over the bottom corners of the game */
+    #touch { display: none; position: absolute; left: 0; right: 0; bottom: 0; box-sizing: border-box;
+      padding: .6rem .8rem; justify-content: space-between; align-items: flex-end; pointer-events: none;
+      touch-action: none; user-select: none; -webkit-user-select: none; line-height: 1.2; z-index: 2; }
     body.touch #touch { display: flex; }
-    body.touch #screen { height: min(calc(100vw / var(--aspect)), calc(100vh - 17rem)); }
-    #touch .pad { display: grid; grid-template-columns: repeat(3, 3.4rem); grid-template-rows: repeat(3, 3.4rem);
+    #touch > * { pointer-events: auto; }
+    #stick { width: 7.5rem; height: 7.5rem; border-radius: 50%; border: 1px solid rgba(215, 220, 229, .35);
+      background: rgba(17, 21, 30, .35); display: flex; align-items: center; justify-content: center;
+      touch-action: none; }
+    #stick div { width: 45%; height: 45%; border-radius: 50%; background: rgba(215, 220, 229, .5);
+      pointer-events: none; }
+    #touch .pad { display: grid; grid-template-columns: repeat(3, 3.2rem); grid-template-rows: repeat(3, 3.2rem);
       gap: .25rem; }
-    #touch button { font: 600 .8rem system-ui, sans-serif; border-radius: .7rem; border: 1px solid #2f3747;
-      background: #171c27; color: #d7dce5; touch-action: none; }
-    #touch button.down, #touch button.on { background: #33405a; }
-    #touch .mid { display: flex; flex-direction: column; gap: .4rem; }
-    #touch .mid button { padding: .5rem .6rem; }
+    #touch button { font: 600 .75rem system-ui, sans-serif; border-radius: 50%; border: 1px solid rgba(215, 220, 229, .35);
+      background: rgba(17, 21, 30, .45); color: #d7dce5; touch-action: none; }
+    #touch button.down { background: rgba(80, 100, 140, .7); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -92,8 +109,23 @@
   </div>
   <div id="status" hidden></div>
   <div id="stage" hidden>
-    <canvas id="screen" width="240" height="240"></canvas>
-    <div id="soft"><span id="soft1"></span><span id="soft2"></span></div>
+    <div id="view">
+      <canvas id="screen" width="240" height="240"></canvas>
+      <div id="overlay">
+        <button id="ov-fast" title="Fast-forward">▶▶</button>
+        <button id="ov-settings" title="Settings">⚙</button>
+        <button id="ov-full" title="Fullscreen">⛶</button>
+      </div>
+      <div id="touch">
+        <div id="stick"><div></div></div>
+        <div class="pad">
+          <span></span><button data-key="6">Special</button><span></span>
+          <button data-key="9">Buster</button><button data-key="20">OK</button><button data-key="3">Lock</button>
+          <span></span><button data-key="0">Jump</button><span></span>
+        </div>
+      </div>
+    </div>
+    <div id="soft"><span id="soft1" data-key="21"></span><span id="soft2" data-key="22"></span></div>
     <div id="bar">
       <button id="btn-settings" title="F1">Settings</button>
       <button id="btn-fast" title="Click to switch on or off; or hold Tab / L3">Fast-forward ▶▶</button>
@@ -103,23 +135,6 @@
     </div>
     <div id="pad"></div>
     <div id="settings" hidden></div>
-    <div id="touch">
-      <div class="pad">
-        <span></span><button data-key="17">▲</button><span></span>
-        <button data-key="16">◀</button><button data-key="20">OK</button><button data-key="18">▶</button>
-        <span></span><button data-key="19">▼</button><span></span>
-      </div>
-      <div class="mid">
-        <button data-key="21">Soft 1</button>
-        <button data-key="22">Soft 2</button>
-        <button id="touch-fast">▶▶</button>
-      </div>
-      <div class="pad">
-        <span></span><button data-key="6">Special</button><span></span>
-        <button data-key="9">Buster</button><span></span><button data-key="3">Lock</button>
-        <span></span><button data-key="0">Jump</button><span></span>
-      </div>
-    </div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

@@ -21,6 +21,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { registerTexture } from '../host/texfilter.js';
 import { makeLit, makeOutline, computeNormals, cel } from '../host/lighting.js';
 import { keyOf } from '../host/contentkey.js';
+import { frameClock } from '../host/frameclock.js';
 
 // Bone tables: [phone bone index, Legends 2 bone name, alignment]
 //   alignment omitted        rest poses already agree (trunk, legs, arms hanging down)
@@ -165,6 +166,34 @@ class Instance {
     this.rest = new Map(this.order.map((b) => [b.name, b.position.clone()]));
     this.world = new Map(); // bone name -> desired model-space rotation
     this.quats = new Map(this.order.map((b) => [b.name, new THREE.Quaternion()]));
+    // the pose of this game frame and of the previous one, so in-between pictures (frame rates
+    // above the game's 15) can show the skeleton part of the way; applied by G3D.draw
+    this.pose = this.order.map(() => new THREE.Quaternion());
+    this.poseBefore = this.order.map(() => new THREE.Quaternion());
+    this.rootAt = new THREE.Vector3();
+    this.rootBefore = new THREE.Vector3();
+    this.poseFrame = -2;
+    this.root.userData.tween = (t) => {
+      for (let i = 0; i < this.order.length; i++) {
+        this.order[i].quaternion.slerpQuaternions(this.poseBefore[i], this.pose[i], t);
+      }
+      this.order[0].position.lerpVectors(this.rootBefore, this.rootAt, t);
+    };
+  }
+
+  /** Remember the pose just solved; the previous one is kept if it was the previous frame's. */
+  capture() {
+    const frame = frameClock.frame;
+    const continuous = this.poseFrame === frame - 1;
+    this.poseFrame = frame;
+    for (let i = 0; i < this.order.length; i++) {
+      if (continuous) this.poseBefore[i].copy(this.pose[i]);
+      this.pose[i].copy(this.order[i].quaternion);
+      if (!continuous) this.poseBefore[i].copy(this.pose[i]);
+    }
+    if (continuous) this.rootBefore.copy(this.rootAt);
+    this.rootAt.copy(this.order[0].position);
+    if (!continuous) this.rootBefore.copy(this.rootAt);
   }
 
   setVisible(part, visible) {
@@ -417,6 +446,7 @@ export class Legends2 {
   }
 
   #place(inst, matrix, scale) {
+    inst.capture();
     for (const shell of inst.outlines) shell.visible = cel.enabled;
     inst.root.matrix.copy(matrix).scale(_v.set(scale, scale, scale));
     inst.root.matrixWorld.copy(inst.root.matrix);

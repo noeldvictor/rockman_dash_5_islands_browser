@@ -75,6 +75,8 @@ export class Screen {
     this.quadMaterial = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false });
     this.quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.quadMaterial));
 
+    /** Widescreen: draw the mission HUD gauges at the screen edges (off when touch controls sit there). */
+    this.edgeHud = true;
     /** Fill the widescreen side bars of 2D screens with a blurred copy of the picture. */
     this.sideFill = true;
     this.fillCanvas = makeCanvas(FILL_SIZE, FILL_SIZE);
@@ -162,7 +164,7 @@ export class Screen {
    * @returns {number} how far they move, in phone pixels (0 = stay put)
    */
   hudBegin() {
-    if (this.xoff === 0 || !this.wide3D) return 0;
+    if (!this.edgeHud || this.xoff === 0 || !this.wide3D) return 0;
     this.graphics.setWide(true);
     return this.xoff;
   }

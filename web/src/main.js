@@ -12,6 +12,7 @@ import { SettingsMenu } from './host/menu.js';
 import { setTextureFilter, setMaxAnisotropy } from './host/texfilter.js';
 import { setLighting, setCelShading, shadows, markScenery } from './host/lighting.js';
 import { keyOf } from './host/contentkey.js';
+import { setupTouch } from './host/touch.js';
 import { legends2 } from './mods/legends2.js';
 
 const $ = (id) => document.getElementById(id);
@@ -92,9 +93,9 @@ async function start(variant) {
   let fastLatched = false;
   const applyFast = () => {
     cheats.fastForward = fastHeld || fastLatched;
-    for (const id of ['btn-fast', 'touch-fast']) $(id).classList.toggle('on', cheats.fastForward);
+    for (const id of ['btn-fast', 'ov-fast']) $(id).classList.toggle('on', cheats.fastForward);
   };
-  for (const id of ['btn-fast', 'touch-fast']) {
+  for (const id of ['btn-fast', 'ov-fast']) {
     $(id).addEventListener('click', () => {
       fastLatched = !fastLatched;
       applyFast();
@@ -145,27 +146,14 @@ async function start(variant) {
     });
     settings.on('mouseLook', (on) => { if (!on && captured()) document.exitPointerLock(); });
   }
-  // on-screen buttons for touch devices
+  // on-screen controls: touch devices get a stick and buttons over the game; the soft key labels
+  // under the game can be clicked or tapped by anyone
   if (window.matchMedia('(pointer: coarse)').matches || params.has('touch')) {
     document.body.classList.add('touch');
   }
-  for (const button of document.querySelectorAll('#touch [data-key]')) {
-    const key = Number(button.dataset.key);
-    const source = `touch:${key}`;
-    const up = () => {
-      button.classList.remove('down');
-      input.release(key, source);
-    };
-    button.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      button.setPointerCapture(e.pointerId);
-      button.classList.add('down');
-      input.press(key, source);
-    });
-    button.addEventListener('pointerup', up);
-    button.addEventListener('pointercancel', up);
-    button.addEventListener('contextmenu', (e) => e.preventDefault());
-  }
+  setupTouch({ input, camera, canvas: $('screen'), stick: $('stick') });
+  // the stick and buttons sit in the bottom corners: keep the HUD gauges out from under them
+  screen.edgeHud = !document.body.classList.contains('touch');
   const audio = new Audio();
   settings.bind('muted', (v) => audio.setMuted(v));
   const applyVolumes = () => audio.setCategoryVolumes(settings.get('musicVolume'), settings.get('effectsVolume'));
@@ -287,7 +275,19 @@ async function start(variant) {
   $('btn-wide').addEventListener('click', () => toggle('wide'));
   $('btn-mute').addEventListener('click', () => toggle('muted'));
   $('btn-full').addEventListener('click', toggleFullscreen);
-  for (const b of document.querySelectorAll('#bar button')) {
+  // toolbar over the game (fullscreen, where the buttons below are hidden, and touch devices);
+  // in fullscreen it shows while the pointer is moving
+  $('ov-settings').addEventListener('click', () => menu.toggle());
+  $('ov-full').addEventListener('click', toggleFullscreen);
+  {
+    let idle = 0;
+    $('stage').addEventListener('pointermove', () => {
+      $('stage').classList.add('active');
+      clearTimeout(idle);
+      idle = setTimeout(() => $('stage').classList.remove('active'), 2500);
+    });
+  }
+  for (const b of document.querySelectorAll('#bar button, #overlay button')) {
     b.addEventListener('keydown', (e) => e.preventDefault()); // keep Space/Enter for the game
     b.addEventListener('click', () => b.blur());
   }

@@ -50,6 +50,7 @@ All of these are options in the settings menu (press **F1**); none change the ga
 - **Free camera** — look around with the right stick or the mouse, with sensitivity, invert,
   field of view and camera distance options.
 - **Controller support** with rumble, and **rebindable** keyboard and controller buttons.
+- **Touch controls** — an on-screen stick and buttons, and swipe to look.
 - **Direct movement** — push the stick (or WASD) where you want to go, relative to the camera,
   instead of turn-and-walk tank controls.
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
@@ -169,7 +170,7 @@ yet. Known rough edges:
 
 - The music is played with General MIDI instruments (sampled if you have the SoundFont,
   synthesised otherwise), not the phone's own sound source, so it does not sound like the phone.
-- Above 15 fps, Legends 2 model animation and the 2D layer still update 15 times a second.
+- Above 15 fps, the 2D layer (HUD, dialogue) still updates 15 times a second.
 - The settings menu cannot be driven from a controller.
 - The newer options were checked with screenshots and automated runs rather than long play
   sessions.

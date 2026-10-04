@@ -99,6 +99,7 @@ export class Input {
    * While locked on the game strafes, so they act as a d-pad there, as in menus and cutscenes.
    */
   analogMove = false;
+  #stick = [0, 0];
   #dirs = new Map(); // movement action id -> Set of sources holding it
   #moveKeys = new Set(); // phone keys held for the movement actions
   #keyHeading = NaN; // direct movement from keys: world heading, NaN when not in use
@@ -164,6 +165,11 @@ export class Input {
     };
     this.#keyboard = build(keyboard, 'keyboard');
     this.#gamepad = build(gamepad, 'gamepad');
+  }
+
+  /** Position of the on-screen stick (touch.js), each axis -1..1; 0, 0 when let go. */
+  setStick(x, y) {
+    this.#stick = [x, y];
   }
 
   /** The game sees no keys while disabled (the settings menu is open). */
@@ -298,7 +304,11 @@ export class Input {
     const dt = Math.min(0.1, (now - this.#lastPoll) / 1000);
     this.#lastPoll = now;
     const cam = this.camera;
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()) : [];
+    // the on-screen stick behaves like a controller's left stick
+    if (this.#stick[0] || this.#stick[1]) {
+      pads.push({ connected: true, virtual: true, buttons: [], axes: [this.#stick[0], this.#stick[1], 0, 0] });
+    }
     const down = new Set(); // phone keys held through the sticks
     const actions = new Set(); // actions held through buttons
     let name = null;
@@ -308,7 +318,7 @@ export class Input {
     let anyButton = -1;
     for (const pad of pads) {
       if (!pad || !pad.connected) continue;
-      name ??= pad.id;
+      if (!pad.virtual) name ??= pad.id;
       pad.buttons.forEach((b, index) => {
         if (!(b.pressed || b.value > 0.5)) return;
         if (anyButton < 0) anyButton = index;

@@ -17,6 +17,7 @@ import { legends2 } from '../mods/legends2.js';
 import { registerTexture } from './texfilter.js';
 import { makeLit, makeOutline, updateDraw, shadows } from './lighting.js';
 import { FIGURE_SCALE } from './conventions.js';
+import { frameClock } from './frameclock.js';
 
 export const TYPE = {
   ACTION_TABLE: 1, FIGURE: 2, TEXTURE: 3, PRIMITIVE: 6, GROUP: 7,
@@ -130,8 +131,7 @@ export function getOutlineMaterial({ map = null, colorKey = false }) {
   return m;
 }
 
-/** Counts presented frames; drawing instances use it to tell whether they were drawn last frame. */
-export const frameClock = { frame: 0 };
+export { frameClock };
 
 /** Immediate-mode geometry whose arrays the game rewrites freely between draws. */
 export class Primitive3D {
@@ -455,7 +455,9 @@ export class G3D {
       const obj = objects[i];
       obj.matrix.copy(moving && before[i] ? mixMatrix(before[i], matrices[i], t) : matrices[i]);
       obj.matrixWorld.copy(obj.matrix);
-      for (const child of obj.children) child.updateMatrixWorld(true); // Legends 2 models
+      // Legends 2 models: blend the skeleton from the previous frame's pose, then update it
+      obj.userData.tween?.(moving ? t : 1);
+      for (const child of obj.children) child.updateMatrixWorld(true);
       obj.renderOrder = i;
       obj.parent = this.scene;
       this.scene.children.push(obj);
@@ -479,6 +481,8 @@ const _mix = new THREE.Matrix4();
 const _c0 = new THREE.Matrix4();
 const _c1 = new THREE.Matrix4();
 
+/** Determinant below which a model matrix counts as flattened (figures are scaled by 1/64: 4e-6). */
+const FLAT = 1e-10;
 /** An object that moved this far in one frame was teleported: do not slide it across. */
 const JUMP_DISTANCE = 6;
 /** A camera that moved or turned this much in one frame was cut to a new shot. */
@@ -493,6 +497,13 @@ function jumped(a, b) {
 
 /** Model matrix part of the way from `a` to `b` (returns a shared scratch matrix). */
 function mixMatrix(a, b, t) {
+  if (Math.abs(a.determinant()) < FLAT || Math.abs(b.determinant()) < FLAT) {
+    // flattened (a zero-scale axis, as the game's shot and effect sprites have): there is no
+    // rotation to take out of such a matrix, so blend the elements instead
+    const ea = a.elements, eb = b.elements, e = _mix.elements;
+    for (let i = 0; i < 16; i++) e[i] = ea[i] + (eb[i] - ea[i]) * t;
+    return _mix;
+  }
   a.decompose(_p0, _q0, _s0);
   b.decompose(_p1, _q1, _s1);
   return _mix.compose(_p0.lerp(_p1, t), _q0.slerp(_q1, t), _s0.lerp(_s1, t));

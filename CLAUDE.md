@@ -217,6 +217,13 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   sees no input. F2/F3/M/F/F4 remain as shortcuts. `?scale=` and `?legends2=` override settings
   without saving them.
 - **Rebindable controls**: any number of keys/buttons per action, edited in the menu.
+- **On-screen controls** (`touch.js`, markup in `index.html`): on touch devices (or `?touch`) a
+  virtual stick and action buttons sit over the bottom corners of the game. The stick feeds
+  `Input.setStick`, which the gamepad poll treats as a controller's left stick; dragging a
+  finger on the game turns the camera. The HUD gauges then stay in the centred 240 area
+  (`Screen.edgeHud`). The soft-key labels under the game are clickable for everyone. A small
+  toolbar over the game (fast-forward, settings, fullscreen) shows on touch devices and, in
+  fullscreen, while the pointer is moving (the button row below the game is hidden there).
 - **Fast-forward** (hold Tab or L3, or toggle with the Fast-forward button under the game / the
   ▶▶ touch button): 4x game speed through the same frame-limiter mechanism as the speed cheat,
   for dialogue and cutscenes.
@@ -319,8 +326,11 @@ frame is replayed on display frames with the camera and each object's model matr
 from the previous frame's (`G3D.draw`), so the picture runs one game frame behind the game.
 Objects are matched by drawing instance; anything that moved more than 6 units in a frame snaps.
 Figures also blend their vertices from the previous frame's pose (`rdPrev` attribute, `uRdTween`
-uniform). Legends 2 model poses, texture scrolling and all 2D still change 15 times a second, and
-input is still read 15 times a second.
+uniform), and Legends 2 models slerp their bones from the previous frame's pose
+(`Instance.capture` / `root.userData.tween`, called by `G3D.draw`). A flattened model matrix
+(zero-scale axis: the game's shot and effect sprites) cannot be decomposed, so those are blended
+element by element. Texture scrolling and all 2D still change 15 times a second, and input is
+still read 15 times a second.
 
 ## Status
 
@@ -340,7 +350,7 @@ Keep this section current.
 - Known gaps: only what the game uses is implemented — it never adds lights or fog, only draws
   quad `Primitive`s, and never overrides blend/transparency on a `Group`, so lit materials,
   point/line/sprite primitives and those overrides are absent. The game logic runs at its
-  native 15 fps; higher frame rates are interpolated (Legends 2 model poses still step). The
+  native 15 fps; higher frame rates are interpolated. The
   settings menu has no controller navigation. Free-look pitch does not move the 2D sky. Mouse
   capture has not been exercised (headless tests cannot lock the pointer). The new options were checked with screenshots and a simulated
   gamepad, not played by a person.
