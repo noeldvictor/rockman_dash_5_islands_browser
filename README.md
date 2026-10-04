@@ -82,6 +82,11 @@ controller); none change the game's rules, and with everything off you get the p
 |---|---|
 | ![Cutscene](docs/cutscene.jpg) | ![Settings](docs/settings.jpg) |
 
+Optional AI-upscaled textures (left: the original pixels, right: the texture pack):
+
+![AI-upscaled character textures](docs/textures-ai-characters.jpg)
+![AI-upscaled scenery textures](docs/textures-ai-ruin.jpg)
+
 | Title screen in widescreen, with blurred side bars | Touch controls |
 |---|---|
 | ![Title](docs/title.jpg) | ![Touch controls](docs/touch.jpg) |
