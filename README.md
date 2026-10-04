@@ -5,6 +5,8 @@ optional modern upgrades: widescreen, 60 fps, controller support, cel shading an
 
 ![Enhanced gameplay: widescreen, cel shading, shadows, Legends 2 character model](docs/gameplay.jpg)
 
+**[Watch the trailer on YouTube](https://www.youtube.com/watch?v=xwdUlAmF_zo)** (52 seconds)
+
 > **This project is fully vibe coded.** Every line was written by an AI coding agent (Claude
 > Code) working from plain-English requests. There is no support and no roadmap: don't bother me
 > with issues — **fork it and do whatever you want with it.**
@@ -107,6 +109,18 @@ Optional AI-upscaled textures (left: the original pixels, right: the texture pac
 | Title screen in widescreen, with blurred side bars | Touch controls |
 |---|---|
 | ![Title](docs/title.jpg) | ![Touch controls](docs/touch.jpg) |
+
+## Take it with you
+
+Once the game is set up on a Linux machine, two scripts turn it into something you can carry to
+other devices. Both play offline, and both contain your game files, so they are for your own use.
+
+| Script | What it makes | Use it for |
+|---|---|---|
+| `./package_html.sh` | One HTML file (about 40 MB; `--small` 13 MB, `--full` 140 MB) | Any computer or a Steam Deck: copy the file, open it in a browser. Good for archiving. |
+| `./package_android.sh` | An Android app, `.apk` (about 27 MB; `--small` 6 MB, `--full` 100 MB) | Phones and Android handhelds (AYN Thor, Retroid Pocket …). Full screen, landscape, uses the built-in or a Bluetooth controller, with on-screen controls when there is none. Android 8 or newer. |
+
+![The Android app: full screen with on-screen controls](docs/android.jpg)
 
 ## Getting the game
 
