@@ -56,6 +56,8 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 
 | Path | What |
 |---|---|
+| `setup_script.sh`, `play.sh`, `easy_setup_guide.md` | One-step Linux setup for players: checks/installs tools (asks first), sorts the files dropped in `gamefiles/` into `original/`, runs `tools/build.sh`, starts Vite and opens the browser; `--files-only` stops after sorting (used to test it) |
+| `gamefiles/` | Drop folder for the setup script; only its note file is committed |
 | `original/` | Game inputs, **not in the repository** (git-ignored; supply your own dump): `<variant>/RockmanDASH.jar`, `.jam`, `.sp` (scratchpad) for `localized` and `delocalized`, and `sdcard/RDDATA*.BIN` |
 | `runtime/` | Maven project: DoJa API reimplementation + TeaVM build (`./mvnw`, JDK 11+) |
 | `web/` | Vite app. `src/host/` = host services, `src/formats/` = file-format parsers (no three.js imports), `src/mods/` = optional asset replacement |

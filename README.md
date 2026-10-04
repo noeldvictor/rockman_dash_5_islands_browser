@@ -9,6 +9,14 @@ optional modern upgrades: widescreen, 60 fps, controller support, cel shading an
 > Code) working from plain-English requests. There is no support and no roadmap: don't bother me
 > with issues — **fork it and do whatever you want with it.**
 
+## Quick start (Linux)
+
+1. Put your own copy of the game's files in the `gamefiles` folder (zips are fine).
+2. Run `./setup_script.sh`. It checks your tools, sorts the files, builds the game and opens it.
+3. Next time, run `./play.sh`.
+
+**[The easy setup guide](easy_setup_guide.md)** walks through it step by step.
+
 ## What is this, in plain words?
 
 *Rockman DASH: Great Adventure on 5 Islands* was a 3D action game Capcom released in 2008 for
@@ -50,7 +58,8 @@ controller); none change the game's rules, and with everything off you get the p
   counted that way), so the in-between pictures are interpolated, the same way other recompiled
   console ports do it. Camera, objects and character animation are all smoothed.
 - **Texture filtering** — original sharp pixels, smooth, an upscaled "HD" mode, or an optional
-  AI-upscaled texture pack you generate yourself (`tools/ai/textures.py`, needs a ComfyUI server).
+  AI-upscaled texture pack you generate yourself (`tools/ai/textures.py`, needs a ComfyUI server);
+  the pack covers the Legends 2 models' textures too.
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
 - **Field of view** and **camera distance** sliders.
 
@@ -99,7 +108,9 @@ the port will not build or run without them. For the story of how the game was r
 translated into English, and for credit to the people who did that, see Rockman Corner:
 <https://www.rockman-corner.com/2025/03/rockman-dash-great-adventure-on-5.html>
 
-Put the files here (the two variants are the two flavours of the English patch):
+The simple way is to drop everything into `gamefiles/` and let `./setup_script.sh` sort it
+(see the [easy setup guide](easy_setup_guide.md)). By hand, the files go here (the two variants
+are the two flavours of the English patch):
 
 ```
 original/
@@ -110,7 +121,9 @@ original/
 
 ## Building and running
 
-You need a JDK (11 or newer), Node.js and Python 3. Optional: a General MIDI SoundFont at
+`./setup_script.sh` does all of this for you on Linux; these are the manual steps.
+
+You need a JDK (11 or newer), Node.js (18 or newer) and Python 3. Optional: a General MIDI SoundFont at
 `/usr/share/sounds/sf2/FluidR3_GM.sf2` (Debian/Ubuntu package `fluid-soundfont-gm`) — if it is
 there, the build cuts the instruments the music uses out of it and the music plays with recorded
 instruments instead of simple synthesis.
@@ -182,7 +195,9 @@ it the most complete description of the project.
 | `original/` | Your game files (not in the repository) |
 | `runtime/` | The phone's programming interface re-created in Java, and the TeaVM build |
 | `web/` | The web page: renderer, input, sound, storage (`src/host/`), file-format parsers (`src/formats/`), optional asset swaps (`src/mods/`) |
-| `tools/` | Build script, jar patcher, test driver, format dump tools, SoundFont and Legends 2 extractors |
+| `setup_script.sh`, `play.sh` | One-step setup for Linux, and the command to start the game afterwards |
+| `gamefiles/` | Where you drop your game files for the setup script (never committed) |
+| `tools/` | Build script, jar patcher, test driver and video recorder, format dump tools, SoundFont and Legends 2 extractors, AI texture and music helpers, trailer scripts |
 | `docs/` | The pictures on this page |
 | `CLAUDE.md` | The full technical notes |
 

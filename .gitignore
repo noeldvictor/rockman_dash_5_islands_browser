@@ -29,3 +29,7 @@ __pycache__/
 
 # AI-upscaled textures made from the game's art by tools/ai/textures.py
 /web/public/hd/
+
+# game files dropped here for setup_script.sh (never committed; only the note is)
+/gamefiles/*
+!/gamefiles/PUT_YOUR_GAME_FILES_HERE.txt

@@ -1,0 +1,10 @@
+Put your copy of the game in this folder, then run ./setup_script.sh from the folder above.
+
+Zips are fine; the script unpacks them and takes what it needs:
+
+  1. The English patch of "Rockman DASH: Great Adventure on 5 Islands"
+     (its "Localized" and/or "Delocalized" folder, each holding a .jar, a .jam and a .sp file)
+
+  2. The game's SD-card data: 30 files named RDDATA0.BIN ... RDDATA44.BIN
+
+Nothing you put here is ever uploaded or committed. See easy_setup_guide.md.
