@@ -13,3 +13,6 @@
 # Mega Man Legends 2 disc image (source for optional asset replacement; never committed)
 /*.chd
 /build/
+
+__pycache__/
+*.pyc
