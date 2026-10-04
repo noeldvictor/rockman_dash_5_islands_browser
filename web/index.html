@@ -77,7 +77,7 @@
       gap: .25rem; }
     #touch button { font: 600 .8rem system-ui, sans-serif; border-radius: .7rem; border: 1px solid #2f3747;
       background: #171c27; color: #d7dce5; touch-action: none; }
-    #touch button.down { background: #33405a; }
+    #touch button.down, #touch button.on { background: #33405a; }
     #touch .mid { display: flex; flex-direction: column; gap: .4rem; }
     #touch .mid button { padding: .5rem .6rem; }
     [hidden] { display: none !important; }
@@ -96,6 +96,7 @@
     <div id="soft"><span id="soft1"></span><span id="soft2"></span></div>
     <div id="bar">
       <button id="btn-settings" title="F1">Settings</button>
+      <button id="btn-fast" title="Click to switch on or off; or hold Tab / L3">Fast-forward ▶▶</button>
       <button id="btn-wide" title="F3">Widescreen</button>
       <button id="btn-mute" title="M">Mute</button>
       <button id="btn-full" title="F">Fullscreen</button>
@@ -111,6 +112,7 @@
       <div class="mid">
         <button data-key="21">Soft 1</button>
         <button data-key="22">Soft 2</button>
+        <button id="touch-fast">▶▶</button>
       </div>
       <div class="pad">
         <span></span><button data-key="6">Special</button><span></span>

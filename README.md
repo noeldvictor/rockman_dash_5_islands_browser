@@ -50,8 +50,8 @@ All of these are options in the settings menu (press **F1**); none change the ga
 - **Direct stick movement** — push the stick where you want to go, instead of turn-and-walk
   tank controls.
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
-- **Fast-forward** for dialogue and cutscenes, and **fast loading** (seconds instead of half a
-  minute per area).
+- **Fast-forward** for dialogue and cutscenes (a button under the game, or hold Tab / L3), and
+  **fast loading** (seconds instead of half a minute per area).
 - **Sampled music instruments** and separate music / effects volume.
 - **Cheats** — infinite life, infinite weapon energy, max zenny, game speed.
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
@@ -109,7 +109,7 @@ Everything here can be changed under Settings > Controls.
 | Lock-on | Shift, V or L | L2 / R2 |
 | Confirm | Enter | A / Cross or B / Circle |
 | Map / Back, Items | Q, E | Select, Start |
-| Fast-forward (hold) | Tab | L3 |
+| Fast-forward (hold; or click the button under the game) | Tab | L3 |
 | Settings | F1 | — |
 
 F2 original resolution, F3 widescreen, F4 cheats, M mute, F fullscreen.

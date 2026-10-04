@@ -84,9 +84,25 @@ async function start(variant) {
   settings.bind('analogMove', (v) => { input.analogMove = v; });
   settings.on('keyboard', applyBindings);
   settings.on('gamepad', applyBindings);
+  // fast-forward: while its key or button is held, or switched on with the page button
+  let fastHeld = false;
+  let fastLatched = false;
+  const applyFast = () => {
+    cheats.fastForward = fastHeld || fastLatched;
+    for (const id of ['btn-fast', 'touch-fast']) $(id).classList.toggle('on', cheats.fastForward);
+  };
+  for (const id of ['btn-fast', 'touch-fast']) {
+    $(id).addEventListener('click', () => {
+      fastLatched = !fastLatched;
+      applyFast();
+    });
+  }
   input.onAction = (id, down) => {
     if (id === 'recenter' && down) camera.recenter();
-    else if (id === 'fast') cheats.fastForward = down;
+    else if (id === 'fast') {
+      fastHeld = down;
+      applyFast();
+    }
   };
   // mouse free-look: drag on the game
   {

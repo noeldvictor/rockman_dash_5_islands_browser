@@ -208,8 +208,9 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   sees no input. F2/F3/M/F/F4 remain as shortcuts. `?scale=` and `?legends2=` override settings
   without saving them.
 - **Rebindable controls**: any number of keys/buttons per action, edited in the menu.
-- **Fast-forward** (hold Tab or L3): 4x game speed through the same frame-limiter mechanism as
-  the speed cheat, for dialogue and cutscenes.
+- **Fast-forward** (hold Tab or L3, or toggle with the Fast-forward button under the game / the
+  ▶▶ touch button): 4x game speed through the same frame-limiter mechanism as the speed cheat,
+  for dialogue and cutscenes.
 - **Video options**: resolution (auto or a fixed multiple of 240p), texture filter (`texfilter.js`:
   nearest, or bilinear with mipmaps; textures register on creation), frame rate (see Rendering
   model), and three effects in `lighting.js`, all off by default:
