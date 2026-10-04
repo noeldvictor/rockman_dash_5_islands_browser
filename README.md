@@ -37,34 +37,53 @@ This project has three goals:
 
 ## What the port adds
 
-All of these are options in the settings menu (press **F1**); none change the game's rules.
+All of these are options in the settings menu (press **F1**, or the ⚙ button); none change the
+game's rules, and with everything off you get the phone's picture.
 
-- **Widescreen** — the 3D view fills the window; the life and weapon gauges move to the screen
-  edges.
+**Picture**
+
+- **Widescreen** — the 3D view fills the window and the life and weapon gauges move to the screen
+  edges. Screens that stay square (title, menus, map) get a blurred copy of the picture in the
+  side bars instead of black.
 - **High resolution** — sharp at any window size, or the original 240p if you prefer.
-- **Texture filtering** — original sharp pixels, smooth, or an upscaled "HD" mode.
-- **Blurred side bars** behind the title and menus in widescreen, instead of black.
 - **30 / 60 fps** — the game still thinks 15 times a second (every speed and timer in it is
   counted that way), so the in-between pictures are interpolated, the same way other recompiled
-  console ports do it.
-- **Free camera** — look around with the right stick or the mouse, with sensitivity, invert,
-  field of view and camera distance options.
+  console ports do it. Camera, objects and character animation are all smoothed.
+- **Texture filtering** — original sharp pixels, smooth, or an upscaled "HD" mode.
+- **Cel shading, lighting and shadows** — the original has no lighting at all.
+- **Field of view** and **camera distance** sliders.
+
+**Controls**
+
+- **Free camera** — look around with the right stick, by dragging the mouse, or with the mouse
+  captured (move to look, left button fires, right button locks on). Sensitivity and invert
+  options.
+- **Direct movement** — push the stick (or WASD) where you want to go, relative to the camera,
+  instead of turn-and-walk tank controls. The stick also sets your walking speed.
 - **Controller support** with rumble, and **rebindable** keyboard and controller buttons.
 - **Touch controls** — an on-screen stick and buttons, and swipe to look.
-- **Direct movement** — push the stick (or WASD) where you want to go, relative to the camera,
-  instead of turn-and-walk tank controls.
-- **Cel shading, lighting and shadows** — the original has no lighting at all.
-- **Fast-forward** for dialogue and cutscenes (a button under the game, or hold Tab / L3), and
-  **fast loading** (seconds instead of half a minute per area).
-- **Sampled music instruments** and separate music / effects volume.
+- **Fast-forward** for dialogue and cutscenes: a button under the game, or hold Tab / L3.
+
+**Sound**
+
+- **Sampled instruments** for the music, and separate music / effects volume.
+
+**Extras**
+
+- **Fast loading** — seconds instead of half a minute per area.
+- **Save export / import** — saves live in your browser; back them up or move them as a file.
 - **Cheats** — infinite life, infinite weapon energy, max zenny, game speed.
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
   for the phone's (see [below](#optional-legends-2-character-models)).
-- Saves are kept in your browser, and can be **exported and imported** as a file.
+- A small toolbar over the game in fullscreen, so settings and fast-forward stay in reach.
 
 | Cutscene with Legends 2 models and cel shading | Settings menu |
 |---|---|
 | ![Cutscene](docs/cutscene.jpg) | ![Settings](docs/settings.jpg) |
+
+| Title screen in widescreen, with blurred side bars | Touch controls |
+|---|---|
+| ![Title](docs/title.jpg) | ![Touch controls](docs/touch.jpg) |
 
 ## Getting the game
 
@@ -106,17 +125,22 @@ Everything here can be changed under Settings > Controls.
 | Action | Keyboard | Controller |
 |---|---|---|
 | Move / turn | Arrows or WASD | Left stick or D-pad; L1 / R1 turn |
-| Look around | Drag the mouse; R re-centres | Right stick; R3 re-centres |
+| Look around | Drag the mouse (or capture it: Settings > Controls); R re-centres | Right stick; R3 re-centres |
 | Jump | Space or X | A / Cross |
 | Buster | Z or J | X / Square |
 | Special weapon | C or K | Y / Triangle |
 | Lock-on | Shift, V or L | L2 / R2 |
 | Confirm | Enter | A / Cross or B / Circle |
-| Map / Back, Items | Q, E | Select, Start |
+| Map / Back, Items (the labels under the game; also clickable) | Q, E | Select, Start |
 | Fast-forward (hold; or click the button under the game) | Tab | L3 |
 | Settings | F1 | — |
 
 F2 original resolution, F3 widescreen, F4 cheats, M mute, F fullscreen.
+
+With "Direct movement" on (Settings > Controls), the movement keys and the left stick move
+relative to the camera instead of turning. With the mouse captured, the left button fires the
+buster and the right button locks on. On a phone or tablet, an on-screen stick and buttons appear
+over the game, and dragging a finger on the picture looks around.
 
 ## How it works
 
@@ -172,8 +196,9 @@ yet. Known rough edges:
   synthesised otherwise), not the phone's own sound source, so it does not sound like the phone.
 - Above 15 fps, the 2D layer (HUD, dialogue) still updates 15 times a second.
 - The settings menu cannot be driven from a controller.
-- The newer options were checked with screenshots and automated runs rather than long play
-  sessions.
+- Most options were checked with screenshots and automated runs rather than long play sessions.
+  Touch controls and mouse capture have only been tried with simulated input, not on real
+  devices, and nobody has yet judged the music by ear.
 
 ## Credits and legal
 
