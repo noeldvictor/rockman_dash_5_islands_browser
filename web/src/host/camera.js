@@ -13,6 +13,8 @@ export class FreeCamera {
   pitch = 0;
   /** Player heading in degrees (atan2 of the forward vector's x and z), from the game. */
   playerYaw = 0;
+  /** during play: the game's Select key would open, examine or continue something */
+  interact = false;
   /** While true the camera keeps its world heading when the player turns. */
   holdWorld = false;
   /**
@@ -62,9 +64,10 @@ export class FreeCamera {
   }
 
   /** Called by the game every frame it builds its camera. */
-  report(follow, playerYaw) {
+  report(follow, playerYaw, interact = false) {
     if (!follow) return;
     this.#lastReport = performance.now();
+    this.interact = !!interact;
     this.playerYaw = playerYaw;
     if (this.holdWorld) {
       const yaw = wrap180(this.#world - playerYaw);

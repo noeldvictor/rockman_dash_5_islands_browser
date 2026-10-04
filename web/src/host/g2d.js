@@ -8,6 +8,7 @@
 import { decodeImage } from './images.js';
 
 const LOADING_LINE = /do not (press|push) any buttons/i;
+const VISIBLE_TEXT = /[^\s\0-\x20]/;
 const FONT_FAMILY = '"DejaVu Sans Mono", "Menlo", "Consolas", "Liberation Mono", monospace';
 
 /** An image the game can draw, and (when mutable) draw into. */
@@ -251,6 +252,9 @@ export class G2D {
     // Loading screens all carry this line; while one is showing, the game's 15 fps limiter is
     // bypassed (rdash.GameHooks) so loading is not artificially slow.
     if (this.screen && LOADING_LINE.test(s)) globalThis.DOJA.loadingUntil = performance.now() + 250;
+    // Text on screen means a message, prompt or menu is up (play itself only draws gauges):
+    // the controller's jump/confirm button confirms while it is (input.js).
+    if (this.screen && VISIBLE_TEXT.test(s)) this.screen.textDrawn = true;
     const ctx = this.ctx;
     ctx.font = this.fontCss;
     ctx.fillStyle = this.color;

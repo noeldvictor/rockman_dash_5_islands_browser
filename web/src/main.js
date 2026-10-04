@@ -89,6 +89,7 @@ async function start(variant) {
   const input = new Input(window);
   const camera = new FreeCamera();
   input.camera = camera;
+  screen.onText = (shown) => { input.textShown = shown; };
   const cheats = new Cheats();
   const applyBindings = () => input.setBindings(settings.get('keyboard'), settings.get('gamepad'));
   applyBindings();

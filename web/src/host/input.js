@@ -172,6 +172,9 @@ export class Input {
    */
   onMenuNav = null;
   #menuHeld = new Map(); // command -> time of its next repeat
+  /** the game's last frame had text on it (set by Screen) */
+  textShown = false;
+  #padRole = new Map(); // held button bound to both jump and confirm -> which one it is this press
   #combo = false; // the menu combo is being held
   #padWait = false; // ignore controller buttons until they have all been released
   /** Called for page-side actions ('recenter', 'fast', 'menu'): (id, down) => void */
@@ -393,22 +396,35 @@ export class Input {
     let analogHeading = NaN;
     let analogSpeed = 1;
     let anyButton = -1;
-    const playing = !!cam && cam.following;
+    // "playing": free to jump. Not while the game shows a message or prompt (text on screen),
+    // nor while something its Select key would open or examine is in reach (cam.interact).
+    const playing = !!cam && cam.following && !cam.interact && !this.textShown;
+    const heldNow = new Set();
     for (const pad of pads) {
       if (!pad.virtual) name ??= pad.id;
       pad.buttons.forEach((held, index) => {
         if (!held) return;
         if (anyButton < 0) anyButton = index;
+        heldNow.add(index);
         const bound = this.#gamepad.get(index) ?? [];
         // A button that both jumps and confirms (A / Cross by default) jumps during play and
         // confirms everywhere else: in play the game fires the buster on its Select key too.
+        // Which of the two it is gets decided when it goes down. A confirm ends when play
+        // resumes under the still-held button, so closing a message does not fire a shot.
         const both = bound.some((a) => a.id === 'jump') && bound.some((a) => a.id === 'confirm');
+        if (both) {
+          const role = this.#padRole.get(index);
+          if (!role) this.#padRole.set(index, playing ? 'jump' : 'confirm');
+          else if (role === 'confirm' && playing) this.#padRole.set(index, 'spent');
+        }
+        const role = this.#padRole.get(index);
         for (const a of bound) {
-          if (both && a.id === (playing ? 'confirm' : 'jump')) continue;
+          if (both && (a.id === 'jump' || a.id === 'confirm') && a.id !== role) continue;
           actions.add(a);
         }
       });
     }
+    for (const index of this.#padRole.keys()) if (!heldNow.has(index)) this.#padRole.delete(index);
     if (name !== this.#padName) {
       this.#padName = name;
       this.onGamepadChange?.(name);

@@ -67,10 +67,32 @@ public final class Mods {
                 yaw += turn;
             }
         }
-        Host.cameraReport(true, yaw);
+        Host.cameraReport(true, yaw, canInteract(mission.e, player));
         if (Host.cameraChanged()) {
             player.o = true; // the game only rebuilds its camera when the player has moved
         }
+    }
+
+    /**
+     * True while the game's Select key would do something other than fire the buster: a door,
+     * chest, switch or exit is in reach (the events {@code k.d()} would start), or the player is
+     * waiting for a button. The host makes the controller's jump/confirm button confirm then.
+     */
+    private static boolean canInteract(k status, av player) {
+        if (player.i) {
+            return true;
+        }
+        a[] events = status.v;
+        if (events == null) {
+            return false;
+        }
+        for (int n = 0; n < status.a && n < events.length; n++) {
+            a event = events[n];
+            if (event != null && event.z && !event.x && !event.d) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

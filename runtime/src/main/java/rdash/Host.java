@@ -92,9 +92,13 @@ public final class Host {
     @JSBody(script = "return globalThis.DOJA.camera.pitch;")
     public static native float cameraPitch();
 
-    /** Tells the host whether the follow camera is active this frame and the player's heading. */
-    @JSBody(params = {"follow", "playerYaw"}, script = "globalThis.DOJA.camera.report(follow, playerYaw);")
-    public static native void cameraReport(boolean follow, float playerYaw);
+    /**
+     * Tells the host whether the follow camera is active this frame, the player's heading, and
+     * whether the game's Select key would interact with something (see Mods.canInteract).
+     */
+    @JSBody(params = {"follow", "playerYaw", "interact"},
+            script = "globalThis.DOJA.camera.report(follow, playerYaw, interact);")
+    public static native void cameraReport(boolean follow, float playerYaw, boolean interact);
 
     /** True once after the free-look offsets changed. */
     @JSBody(script = "return globalThis.DOJA.camera.consumeChanged();")

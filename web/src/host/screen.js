@@ -49,6 +49,9 @@ export class Screen {
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // colours are passed through as-is
     this.lockCount = 0;
     this.dirty2D = false;
+    /** the frame being drawn has text on it; reported through onText(shown) when presented */
+    this.textDrawn = false;
+    this.onText = null;
     this.scale = 0;
     this.frames = 0; // presented frames, for measuring the game's frame rate
     // Widescreen: the canvas is `viewWidth` logical pixels wide (>= 240). The game's 240-wide
@@ -191,6 +194,9 @@ export class Screen {
   present() {
     this.g3d.flush();
     this.flush2D();
+    // text in this frame: a message, prompt or menu is up (set by Graphics.drawString)
+    this.onText?.(this.textDrawn);
+    this.textDrawn = false;
     const now = performance.now();
     const previous = this.shown;
     const frame = { steps: this.steps, wide: this.wide3D, interpolate: false, time: now };
