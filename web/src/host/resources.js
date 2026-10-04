@@ -203,15 +203,8 @@ export class Resources {
     return f ? i8(f) : null;
   }
 
-  /**
-   * Every distinct copy of a game data file, wherever it lives: the jar, the scratchpad's data
-   * zip, or the island zips on the SD card. Used to recognise the game's own models by content.
-   * @returns {Uint8Array[]}
-   */
-  findAll(name) {
-    const out = [];
-    const add = (b) => { if (b && !out.some((x) => x.length === b.length && x.every((v, i) => v === b[i]))) out.push(b); };
-    add(this.jar[name]);
+  /** The game's data zips: the scratchpad's (current island) and each island's on the SD card. */
+  #dataZips() {
     const zips = [];
     const seg = this.segments[0];
     if (seg && seg[4] === 0x50 && seg[5] === 0x4b) {
@@ -228,12 +221,39 @@ export class Resources {
         zips.push(blob);
       }
     }
-    for (const z of zips) {
+    return zips;
+  }
+
+  /**
+   * Every game data file whose name matches, wherever it lives: the jar, the scratchpad's data
+   * zip, or the island zips on the SD card. A name can come back more than once (several copies,
+   * possibly different). Used to recognise the game's own models by content.
+   * @param {RegExp} pattern
+   * @returns {[string, Uint8Array][]}
+   */
+  files(pattern) {
+    const out = [];
+    for (const [name, bytes] of Object.entries(this.jar)) if (pattern.test(name)) out.push([name, bytes]);
+    for (const z of this.#dataZips()) {
       try {
-        add(unzipSync(z, { filter: (f) => f.name === name })[name]);
+        for (const [name, bytes] of Object.entries(unzipSync(z, { filter: (f) => pattern.test(f.name) }))) {
+          out.push([name, bytes]);
+        }
       } catch {
         // not a zip (e.g. an island not downloaded yet)
       }
+    }
+    return out;
+  }
+
+  /**
+   * Every distinct copy of one game data file.
+   * @returns {Uint8Array[]}
+   */
+  findAll(name) {
+    const out = [];
+    for (const [n, b] of this.files(new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))) {
+      if (n === name && !out.some((x) => x.length === b.length && x.every((v, i) => v === b[i]))) out.push(b);
     }
     return out;
   }

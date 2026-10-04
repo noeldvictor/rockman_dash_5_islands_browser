@@ -89,8 +89,8 @@ export class Texture3D {
  */
 const materialCache = new Map();
 export function getMaterial({ map = null, colorKey = false, blend = BLEND_NORMAL, alpha = 1,
-  vertexColors = false, doubleSide = true, color = 0xffffff, figure = false }) {
-  const key = `${map ? map.id : 0}|${colorKey ? 1 : 0}|${blend}|${alpha.toFixed(3)}|${vertexColors ? 1 : 0}|${doubleSide ? 1 : 0}|${color}|${figure ? 1 : 0}`;
+  vertexColors = false, doubleSide = true, color = 0xffffff, figure = false, character = false }) {
+  const key = `${map ? map.id : 0}|${colorKey ? 1 : 0}|${blend}|${alpha.toFixed(3)}|${vertexColors ? 1 : 0}|${doubleSide ? 1 : 0}|${color}|${figure ? 1 : 0}${character ? 1 : 0}`;
   let m = materialCache.get(key);
   if (!m) {
     const blended = blend !== BLEND_NORMAL;
@@ -106,7 +106,8 @@ export function getMaterial({ map = null, colorKey = false, blend = BLEND_NORMAL
       depthWrite: !blended,
     });
     // figures: pose blending always, optional lighting / cel shading on opaque surfaces
-    if (figure) makeLit(m, { light: blend === BLEND_NORMAL, character: true, tween: true });
+    // (cel shading for characters only)
+    if (figure) makeLit(m, { light: blend === BLEND_NORMAL, character, tween: true });
     materialCache.set(key, m);
   }
   return m;
@@ -276,7 +277,7 @@ export class G3D {
     const matrix = new THREE.Matrix4();
     if (m) setMatrix(matrix, m);
     this.touched.add(obj);
-    if (obj.type === TYPE.FIGURE && obj.model.numBones >= 2) {
+    if (obj.type === TYPE.FIGURE && obj.character) {
       const b = obj.model.bounds;
       shadows.add(matrix, { min: b.min.map((v) => v * FIGURE_SCALE), max: b.max.map((v) => v * FIGURE_SCALE) });
     }

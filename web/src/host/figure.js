@@ -8,7 +8,8 @@ import { legends2 } from '../mods/legends2.js';
 import {
   TYPE, getMaterial, getOutlineMaterial, frameClock, BLEND_NORMAL, BLEND_ALPHA, BLEND_ADD,
 } from './g3d.js';
-import { cel } from './lighting.js';
+import { cel, isCharacter, CREASE } from './lighting.js';
+import { keyOf } from './contentkey.js';
 import { FIGURE_LOCAL } from './conventions.js';
 
 class ActionTable3D {
@@ -52,6 +53,8 @@ class Figure3D {
     this.uvCache = new Map(); // `${batch}|${w}x${h}` -> BufferAttribute
     this.colorAttributes = model.batches.map((b) => (b.colors
       ? new THREE.BufferAttribute(b.colors, 3, true) : null));
+    // people and enemies, as opposed to doors, crates and effects: cel shading, shadows
+    this.character = isCharacter(keyOf(bytes));
     // optional Legends 2 model replacement (mods/legends2.js): which player part this is, if any
     this.role = legends2.ready ? legends2.roleOf(bytes) : undefined;
     if (this.role) {
@@ -109,8 +112,9 @@ class Figure3D {
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(b.numCorners * 3), 3));
       // the vertices as posed in the previous frame, for showing in-between poses (lighting.js)
       g.setAttribute('rdPrev', new THREE.BufferAttribute(new Float32Array(b.numCorners * 3), 3));
-      // smooth normals, only filled in while cel shading is on
+      // cel shading (lighting.js): shading normals and outline normals, filled in while it is on
       g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(b.numCorners * 3), 3));
+      g.setAttribute('rdSmooth', new THREE.BufferAttribute(new Float32Array(b.numCorners * 3), 3));
       const mesh = make(g);
       mesh.userData.outline = make(g); // the cel-shading outline shell shares the geometry
       mesh.userData.shown = new Uint8Array(b.numTriangles);
@@ -120,24 +124,85 @@ class Figure3D {
     return meshes;
   }
 
-  /** Smooth normals of the current pose: per vertex, the sum of the faces meeting there. */
-  #smoothNormals() {
+  /**
+   * Normals of the current pose, for cel shading (see lighting.js).
+   * @returns {{smooth: Float32Array, shading: Float32Array, first: number[]}}
+   *   smooth: per vertex, the sum of the faces meeting there (for the outline shell);
+   *   shading: per corner (all batches in order; `first[batch]` is a batch's first corner), the
+   *   sum of the faces at its vertex that are within the crease angle of its own face
+   */
+  #normals() {
     const model = this.model;
     const p = this.posed;
-    const n = (this.normals ??= new Float32Array(model.numVertices * 3)).fill(0);
+    let n = this.normalData;
+    if (!n) {
+      // topology never changes: which faces meet at each vertex
+      const first = [];
+      let corners = 0;
+      for (const b of model.batches) {
+        first.push(corners);
+        corners += b.numTriangles * 3;
+      }
+      const around = Array.from({ length: model.numVertices }, () => []);
+      let f = 0;
+      for (const b of model.batches) {
+        for (let c = 0, end = b.numTriangles * 3; c < end; c += 3, f++) {
+          for (let k = 0; k < 3; k++) around[b.cornerVertex[c + k]].push(f);
+        }
+      }
+      n = this.normalData = {
+        first,
+        around,
+        face: new Float32Array(f * 3), // area-weighted
+        unit: new Float32Array(f * 3),
+        smooth: new Float32Array(model.numVertices * 3),
+        shading: new Float32Array(corners * 3),
+      };
+    }
+    const { face, unit, smooth, shading, around } = n;
+    smooth.fill(0);
+    let f = 0;
     for (const b of model.batches) {
       const cv = b.cornerVertex;
-      for (let c = 0, end = b.numTriangles * 3; c < end; c += 3) {
+      for (let c = 0, end = b.numTriangles * 3; c < end; c += 3, f += 3) {
         const i0 = cv[c] * 3, i1 = cv[c + 1] * 3, i2 = cv[c + 2] * 3;
         const ax = p[i1] - p[i0], ay = p[i1 + 1] - p[i0 + 1], az = p[i1 + 2] - p[i0 + 2];
         const bx = p[i2] - p[i0], by = p[i2 + 1] - p[i0 + 1], bz = p[i2 + 2] - p[i0 + 2];
         const x = ay * bz - az * by, y = az * bx - ax * bz, z = ax * by - ay * bx;
+        const len = Math.hypot(x, y, z) || 1;
+        face[f] = x;
+        face[f + 1] = y;
+        face[f + 2] = z;
+        unit[f] = x / len;
+        unit[f + 1] = y / len;
+        unit[f + 2] = z / len;
         for (const i of [i0, i1, i2]) {
-          n[i] += x;
-          n[i + 1] += y;
-          n[i + 2] += z;
+          smooth[i] += x;
+          smooth[i + 1] += y;
+          smooth[i + 2] += z;
         }
       }
+    }
+    f = 0;
+    let o = 0;
+    for (const b of model.batches) {
+      const cv = b.cornerVertex;
+      for (let c = 0, end = b.numTriangles * 3; c < end; c++, o += 3) {
+        const own = Math.floor(c / 3) * 3 + f;
+        let x = 0, y = 0, z = 0;
+        for (const g of around[cv[c]]) {
+          const g3 = g * 3;
+          if (unit[own] * unit[g3] + unit[own + 1] * unit[g3 + 1] + unit[own + 2] * unit[g3 + 2] > CREASE) {
+            x += face[g3];
+            y += face[g3 + 1];
+            z += face[g3 + 2];
+          }
+        }
+        shading[o] = x;
+        shading[o + 1] = y;
+        shading[o + 2] = z;
+      }
+      f += b.numTriangles * 3;
     }
     return n;
   }
@@ -154,7 +219,7 @@ class Figure3D {
     const tween = instance.frame === frameClock.frame - 1;
     instance.frame = frameClock.frame;
     const posed = this.posed;
-    const normals = cel.enabled ? this.#smoothNormals() : null;
+    const normals = cel.enabled && this.character ? this.#normals() : null;
     const out = [];
     for (let bi = 0; bi < model.batches.length; bi++) {
       const b = model.batches[bi];
@@ -163,6 +228,8 @@ class Figure3D {
       const pos = g.attributes.position.array;
       const prev = g.attributes.rdPrev.array;
       const nrm = g.attributes.normal.array;
+      const smo = g.attributes.rdSmooth.array;
+      const first = normals ? normals.first[bi] * 3 : 0; // this batch's corners in the figure's arrays
       const shown = mesh.userData.shown;
       const cv = b.cornerVertex;
       const filter = b.patternUnion !== 0;
@@ -182,9 +249,12 @@ class Figure3D {
             pos[o + 1] = posed[v + 1];
             pos[o + 2] = posed[v + 2];
             if (normals) {
-              nrm[o] = normals[v];
-              nrm[o + 1] = normals[v + 1];
-              nrm[o + 2] = normals[v + 2];
+              nrm[o] = normals.shading[first + o];
+              nrm[o + 1] = normals.shading[first + o + 1];
+              nrm[o + 2] = normals.shading[first + o + 2];
+              smo[o] = normals.smooth[v];
+              smo[o + 1] = normals.smooth[v + 1];
+              smo[o + 2] = normals.smooth[v + 2];
             }
           } else {
             pos[o] = pos[o + 1] = pos[o + 2] = 0; // degenerate: not drawn
@@ -200,7 +270,10 @@ class Figure3D {
       if (!visible) continue;
       g.attributes.position.needsUpdate = true;
       g.attributes.rdPrev.needsUpdate = true;
-      if (normals) g.attributes.normal.needsUpdate = true;
+      if (normals) {
+        g.attributes.normal.needsUpdate = true;
+        g.attributes.rdSmooth.needsUpdate = true;
+      }
 
       let map = null;
       let colorKey = false;
@@ -233,6 +306,7 @@ class Figure3D {
         vertexColors: !b.textured,
         doubleSide: b.doubleSided,
         figure: true,
+        character: this.character,
       });
       out.push(mesh);
       if (normals && blend === BLEND_NORMAL) {

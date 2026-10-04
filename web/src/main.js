@@ -10,7 +10,8 @@ import { Cheats } from './host/cheats.js';
 import { Settings } from './host/settings.js';
 import { SettingsMenu } from './host/menu.js';
 import { setSmoothTextures } from './host/texfilter.js';
-import { setLighting, setCelShading, shadows } from './host/lighting.js';
+import { setLighting, setCelShading, shadows, markScenery } from './host/lighting.js';
+import { keyOf } from './host/contentkey.js';
 import { legends2 } from './mods/legends2.js';
 
 const $ = (id) => document.getElementById(id);
@@ -43,6 +44,12 @@ async function start(variant) {
   const resources = await Resources.load(variant, 'data', (done, total) => {
     $('status').textContent = `Loading… ${done}/${total}`;
   });
+
+  // Models that are scenery or effects, not characters (no cel shading, no shadow): by file
+  // name, o* = doors, crates and other objects, ef_* = effects, flater = the Flutter airship.
+  for (const [name, bytes] of resources.files(/\.mbac?$/i)) {
+    if (/^(o\d|ef_|flater)/i.test(name.replace(/^.*\//, ''))) markScenery(keyOf(bytes));
+  }
 
   const settings = new Settings();
   // URL overrides (for testing); not saved

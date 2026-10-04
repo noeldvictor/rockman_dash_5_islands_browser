@@ -19,7 +19,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { registerTexture } from '../host/texfilter.js';
-import { makeLit, makeOutline, smoothNormals, cel } from '../host/lighting.js';
+import { makeLit, makeOutline, computeNormals, cel } from '../host/lighting.js';
+import { keyOf } from '../host/contentkey.js';
 
 // Bone tables: [phone bone index, Legends 2 bone name, alignment]
 //   alignment omitted        rest poses already agree (trunk, legs, arms hanging down)
@@ -49,11 +50,12 @@ const CHARACTERS = {
   'rock.mba': {
     model: 'megaman_nohelmet',
     body: 2,
-    // bones 5 and 6 are alternative left forearms (hand / buster); the animation scales one away
-    buster: 6,
+    // bones 5 and 6 are alternative left forearms (buster / hand); the animation scales the one
+    // not in use to nothing, so the forearm follows whichever is shown
+    forearm: { buster: 5, hand: 6 },
     bones: [
       [1, 'hip'], [2, 'body'], [3, 'head'],
-      [4, 'shoulder_l'], [5, 'arm_l'], [7, 'shoulder_r'], [8, 'arm_r'], [9, 'hand_r'],
+      [4, 'shoulder_l'], [6, 'arm_l'], [7, 'shoulder_r'], [8, 'arm_r'], [9, 'hand_r'],
       [10, 'thigh_r'], [11, 'shin_r'], [12, 'foot_r'], [13, 'thigh_l'], [14, 'shin_l'], [15, 'foot_l'],
     ],
   },
@@ -100,22 +102,6 @@ const CHARACTERS = {
 
 const PHONE_UNIT = 1 / 64; // world units per phone model unit
 const PHONE_PLAYER_HEIGHT = 186 * PHONE_UNIT;
-
-let crcTable = null;
-function crc32(bytes) {
-  if (!crcTable) {
-    crcTable = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-      crcTable[n] = c >>> 0;
-    }
-  }
-  let c = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
-const keyOf = (bytes) => `${bytes.length}:${crc32(bytes)}`;
 
 const _m = new THREE.Matrix4();
 const _a = new THREE.Matrix4();
@@ -234,7 +220,10 @@ export class Legends2 {
           return m;
         };
         o.material = Array.isArray(o.material) ? o.material.map(convert) : convert(o.material);
-        o.geometry.setAttribute('normal', smoothNormals(o.geometry)); // for cel shading
+        // for cel shading: `normal` (hard edges kept) shades, `rdSmooth` widens the outline
+        const { shading, smooth } = computeNormals(o.geometry);
+        o.geometry.setAttribute('normal', shading);
+        o.geometry.setAttribute('rdSmooth', smooth);
       });
       this.models.set(name, { scene: gltf.scene, height: info.max[1] });
     }));
@@ -310,14 +299,19 @@ export class Legends2 {
         const inst = this.#instance(spec.model);
         const scale = (part.height * PHONE_UNIT) / model.height;
         inst.world.clear();
-        this.#apply(inst, part, spec.bones);
-        this.#solve(inst, part, spec.body, scale);
-        if (spec.buster !== undefined) {
-          const o = spec.buster * 12;
-          const shown = Math.hypot(part.bones[o], part.bones[o + 4], part.bones[o + 8]) > 0.5;
-          inst.setVisible('buster', shown);
-          inst.setVisible('arm_l', !shown);
+        let table = spec.bones;
+        if (spec.forearm) {
+          const o = spec.forearm.buster * 12;
+          const buster = Math.hypot(part.bones[o], part.bones[o + 4], part.bones[o + 8]) > 0.5;
+          if (buster) {
+            table = spec.busterBones ??= spec.bones.map((e) => (e[0] === spec.forearm.hand
+              ? [spec.forearm.buster, ...e.slice(1)] : e));
+          }
+          inst.setVisible('buster', buster);
+          inst.setVisible('arm_l', !buster);
         }
+        this.#apply(inst, part, table);
+        this.#solve(inst, part, spec.body, scale);
         this.#place(inst, a.matrix, scale);
         nodes.push(inst.root);
         this.stats.replaced++;

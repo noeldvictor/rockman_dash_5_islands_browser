@@ -137,7 +137,7 @@ export class SettingsMenu {
         [15, '15 fps (original)'], [30, '30 fps'], [60, '60 fps'], [0, 'Display rate'],
       ], 'Above 15, in-between pictures are interpolated; the game itself still steps 15 times a second'),
       this.#check('lighting', 'Lighting', 'Shade models and scenery; the original is unlit'),
-      this.#check('celShading', 'Cel shading', 'Two-tone shading and outlines on characters and objects'),
+      this.#check('celShading', 'Cel shading', 'Two-tone shading and outlines on characters'),
       this.#check('shadows', 'Shadows', 'Drop a shadow under characters'),
     ];
   }
