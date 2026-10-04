@@ -36,7 +36,7 @@ for (let i = 0; i < args.length; i++) {
 }
 mkdirSync(opt.out, { recursive: true });
 
-const CDP_PORT = 9333;
+const CDP_PORT = Number(opt.port || 9333); // --port: run several sessions side by side
 const headed = opt.headed === '1';
 const gpu = headed || opt.gpu === '1';
 const attach = opt.attach === '1';
