@@ -17,6 +17,7 @@ public final class Mods {
     public static final int INFINITE_ENERGY = 2;
     public static final int MAX_ZENNY = 4;
     public static final int REFILL = 8;
+    public static final int ONE_HIT_KILL = 16;
 
     private static final int NORMAL_FPS = 15;
     private static boolean speedChanged;
@@ -156,6 +157,42 @@ public final class Mods {
         who.c(0L, 0L, (long) ((float) speed * Host.analogSpeed()));
     }
 
+    /** One-hit kills: the enemies seen last frame and the life each had. */
+    private static bk[] hitEnemy = new bk[0];
+    private static long[] hitLife = new long[0];
+
+    /**
+     * Cheat: every hit the player lands is lethal. An enemy (class bk) takes a hit by having its
+     * "hit" flag z and damage T set (bk.a(int, int, int)), and subtracts T from its life k in its
+     * next update; it dies whenever k is 0. So a hit still waiting to be applied gets the largest
+     * damage there is, and an enemy whose life went down since the last frame without dying is
+     * finished off.
+     */
+    private static void oneHitKill(bh world) {
+        int count = world.p;
+        if (hitEnemy.length < count) {
+            hitEnemy = new bk[count];
+            hitLife = new long[count];
+        }
+        for (int i = 0; i < count; i++) {
+            ag object = world.o[i];
+            bk enemy = object == null ? null : object.i();
+            if (enemy == null) {
+                hitEnemy[i] = null;
+                continue;
+            }
+            if (enemy.z && enemy.T > 0 && enemy.T != Integer.MAX_VALUE) {
+                enemy.T = Integer.MAX_VALUE;
+                Host.cheatKill();
+            } else if (hitEnemy[i] == enemy && enemy.k > 0L && enemy.k < hitLife[i]) {
+                enemy.k = 0L;
+                Host.cheatKill();
+            }
+            hitEnemy[i] = enemy;
+            hitLife[i] = enemy.k;
+        }
+    }
+
     public static void frame() {
         Frame frame = Display.getCurrent();
         if (!(frame instanceof ad)) {
@@ -176,6 +213,11 @@ public final class Mods {
             if ((flags & MAX_ZENNY) != 0) {
                 save.q = 99999999;
             }
+        }
+        bp mission = game.w;
+        if ((flags & ONE_HIT_KILL) != 0 && game.u != null && game.u.f == STATE_MISSION
+                && mission != null && mission.d != null && mission.d.o != null) {
+            oneHitKill(mission.d);
         }
         // game speed: the game logic advances one step per frame, so raising the frame limiter's
         // target makes everything faster

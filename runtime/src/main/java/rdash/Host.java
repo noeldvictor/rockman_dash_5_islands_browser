@@ -124,6 +124,10 @@ public final class Host {
     public static native int cheatFlags();
 
     /** Game speed multiplier (1 = normal). */
+    /** Diagnostics: the one-hit-kill cheat made a hit lethal. */
+    @JSBody(script = "globalThis.DOJA.cheats.kills++;")
+    public static native void cheatKill();
+
     @JSBody(script = "return globalThis.DOJA.cheats.speed | 0;")
     public static native int cheatSpeed();
 

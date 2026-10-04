@@ -289,7 +289,12 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
 - **Audio options**: separate music and effects volume (`audio.js`: a sound that loops or is
   longer than 6 s counts as music).
 - **Cheats** (F4, `cheats.js`, `Mods.java`): infinite life, infinite special energy, refill, max
-  zenny, 2x/3x game speed (raises the frame limiter's target; the logic is per-frame).
+  zenny, 2x/3x game speed (raises the frame limiter's target; the logic is per-frame), and
+  one-hit kills. Enemies are class `bk` (reached as `world.o[i].i()`, `world.p` of them): a hit
+  sets the flag `z` and the damage `T` (`bk.a(int, int, int)`), the enemy subtracts `T` from its
+  life `k` in its next update and dies whenever `k` is 0. `Mods.oneHitKill` raises a pending
+  hit's `T` to the maximum, and zeroes the life of any enemy that lost life since the last frame
+  without dying. `DOJA.cheats.kills` counts the hits it made lethal.
 - **Legends 2 models** (optional; page button, `?legends2=0|1`, `mods/legends2.js`): if
   `web/public/mml2/manifest.json` exists, the phone game's characters are drawn as Mega Man
   Legends 2 models posed by the phone game's own animation. Without that folder the module does

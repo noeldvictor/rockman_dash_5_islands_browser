@@ -90,7 +90,7 @@ controller); none change the game's rules, and with everything off you get the p
 
 - **Fast loading** — seconds instead of half a minute per area.
 - **Save export / import** — saves live in your browser; back them up or move them as a file.
-- **Cheats** — infinite life, infinite weapon energy, max zenny, game speed.
+- **Cheats** — infinite life, infinite weapon energy, one-hit kills, max zenny, game speed.
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
   for the phone's (see [below](#optional-legends-2-character-models)).
 - A small toolbar over the game in fullscreen, so settings and fast-forward stay in reach.

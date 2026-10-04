@@ -326,6 +326,9 @@ export class SettingsMenu {
       this.#row('Infinite special weapon energy', el('input', {
         type: 'checkbox', checked: c.infiniteEnergy, onchange: (e) => { c.infiniteEnergy = e.target.checked; changed(); },
       })),
+      this.#row('One-hit kills', el('input', {
+        type: 'checkbox', checked: c.oneHitKill, onchange: (e) => { c.oneHitKill = e.target.checked; changed(); },
+      }), 'Any hit you land on an enemy, boss or not, finishes it'),
       this.#row('Game speed', speed),
       el('div', { class: 'buttons' },
         el('button', { type: 'button', onclick: () => c.refill() }, 'Refill life and energy'),

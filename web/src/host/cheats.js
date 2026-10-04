@@ -7,6 +7,7 @@ const INFINITE_LIFE = 1;
 const INFINITE_ENERGY = 2;
 const MAX_ZENNY = 4;
 const REFILL = 8;
+const ONE_HIT_KILL = 16;
 
 /** Game speed while the fast-forward key is held. */
 const FAST_FORWARD = 4;
@@ -14,6 +15,10 @@ const FAST_FORWARD = 4;
 export class Cheats {
   infiniteLife = false;
   infiniteEnergy = false;
+  /** Every hit the player lands on an enemy is lethal. */
+  oneHitKill = false;
+  /** Diagnostics: hits the one-hit-kill cheat has made lethal. */
+  kills = 0;
   /** Chosen game speed multiplier: 1 (normal), 2 or 3. */
   baseSpeed = 1;
   /** True while the fast-forward key is held (dialogue, cutscenes, backtracking). */
@@ -25,6 +30,7 @@ export class Cheats {
       const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
       this.infiniteLife = !!saved.infiniteLife;
       this.infiniteEnergy = !!saved.infiniteEnergy;
+      this.oneHitKill = !!saved.oneHitKill;
       this.baseSpeed = [1, 2, 3].includes(saved.speed) ? saved.speed : 1;
     } catch {
       // ignore a corrupt setting
@@ -33,7 +39,8 @@ export class Cheats {
 
   save() {
     localStorage.setItem(KEY, JSON.stringify({
-      infiniteLife: this.infiniteLife, infiniteEnergy: this.infiniteEnergy, speed: this.baseSpeed,
+      infiniteLife: this.infiniteLife, infiniteEnergy: this.infiniteEnergy, oneHitKill: this.oneHitKill,
+      speed: this.baseSpeed,
     }));
   }
 
@@ -43,7 +50,7 @@ export class Cheats {
   }
 
   get active() {
-    return this.infiniteLife || this.infiniteEnergy || this.baseSpeed !== 1;
+    return this.infiniteLife || this.infiniteEnergy || this.oneHitKill || this.baseSpeed !== 1;
   }
 
   maxZenny() {
@@ -56,7 +63,8 @@ export class Cheats {
 
   /** Current flag set; one-shot actions are reported once. */
   flags() {
-    const f = (this.infiniteLife ? INFINITE_LIFE : 0) | (this.infiniteEnergy ? INFINITE_ENERGY : 0) | this.#once;
+    const f = (this.infiniteLife ? INFINITE_LIFE : 0) | (this.infiniteEnergy ? INFINITE_ENERGY : 0)
+      | (this.oneHitKill ? ONE_HIT_KILL : 0) | this.#once;
     this.#once = 0;
     return f;
   }
