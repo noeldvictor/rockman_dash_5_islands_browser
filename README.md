@@ -92,7 +92,8 @@ npm run dev                 # then open http://localhost:5173/
 ```
 
 Pick a variant on the start page. "Continue" loads the save that is in the scratchpad file you
-supplied; "New Game" starts from the beginning.
+supplied; "New Game" starts from the beginning. `npm run build` in `web/` produces a static site
+in `web/dist/` that any web server can host (remember that it then contains your game files).
 
 ## Controls
 
@@ -139,6 +140,17 @@ programming interface (Java)   ───┘                    │ calls
 and the current status. It is written for the AI agent that maintains the code, which also makes
 it the most complete description of the project.
 
+## What is where
+
+| Path | What |
+|---|---|
+| `original/` | Your game files (not in the repository) |
+| `runtime/` | The phone's programming interface re-created in Java, and the TeaVM build |
+| `web/` | The web page: renderer, input, sound, storage (`src/host/`), file-format parsers (`src/formats/`), optional asset swaps (`src/mods/`) |
+| `tools/` | Build script, jar patcher, test driver, format dump tools, SoundFont and Legends 2 extractors |
+| `docs/` | The pictures on this page |
+| `CLAUDE.md` | The full technical notes |
+
 ## Optional: Legends 2 character models
 
 If you have a disc image of *Mega Man Legends 2* (PlayStation), `tools/mml2/` can extract its
@@ -148,8 +160,9 @@ it the phone's own models are used, and everything else works the same.
 
 ## Status
 
-Playable from the title screen through the missions, with saving, in both English variants. Known
-rough edges:
+Both English variants boot, load and save, and the areas, cutscenes, menus, shops and travel
+between islands tried so far all work. Nobody has played it from start to finish in this port
+yet. Known rough edges:
 
 - The music is played with General MIDI instruments (sampled if you have the SoundFont,
   synthesised otherwise), not the phone's own sound source, so it does not sound like the phone.
@@ -166,3 +179,8 @@ rough edges:
   Corner article linked above.
 - No game data, art, music or disc contents are included here. The pictures on this page are
   screenshots of the port running a user-supplied copy.
+- Built on [TeaVM](https://teavm.org/), [three.js](https://threejs.org/) and
+  [fflate](https://github.com/101arrowz/fflate). The optional sampled instruments come from the
+  FluidR3 GM SoundFont by Frank Wen (MIT licence), which is not included either.
+- There is no licence file and no strings attached to the port's own code: as it says at the top,
+  fork it and do what you want.
