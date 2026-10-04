@@ -56,7 +56,7 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 
 | Path | What |
 |---|---|
-| `original/` | Game inputs, committed: per-variant `.jar`/`.jam`/`.sp` (scratchpad), `sdcard/RDDATA*.BIN` |
+| `original/` | Game inputs, **not in the repository** (git-ignored; supply your own dump): `<variant>/RockmanDASH.jar`, `.jam`, `.sp` (scratchpad) for `localized` and `delocalized`, and `sdcard/RDDATA*.BIN` |
 | `runtime/` | Maven project: DoJa API reimplementation + TeaVM build (`./mvnw`, JDK 11+) |
 | `web/` | Vite app. `src/host/` = host services, `src/formats/` = file-format parsers (no three.js imports), `src/mods/` = optional asset replacement |
 | `tools/build.sh` | Patch + recompile both variants and copy data into `web/public/` |
@@ -307,5 +307,7 @@ Keep this section current.
   models are hooked up; the extracted Legends 2 textures, music and sound effects
   (`build/mml2/`) are unused: the effects are unnamed samples, so mapping them to the phone's 25
   effects (`se00`–`se24`) has to be done by ear.
-- Git: work is on branch `web-port`; `origin` is
-  `git@github.com:noeldvictor/rockman_dash_5_islands_browser.git` (SSH; nothing pushed yet).
+- Git: `origin` is `git@github.com:noeldvictor/rockman_dash_5_islands_browser.git` (SSH), a
+  public repository. Work happens on `main`, whose history contains no game files. The local
+  branch `web-port` is the older history that still has `original/` and the data zip in it:
+  never push it.

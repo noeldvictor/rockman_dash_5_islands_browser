@@ -6,6 +6,10 @@
 /web/public/game/
 /web/public/data/
 
+# the game itself: supply your own dump (see CLAUDE.md, "Game data"); never committed
+/original/
+/Rockman DASH*.zip
+
 # the Windows launcher/emulator bundle the game was distributed with (not needed by the port)
 /rockmanlegendsof5islands.zip
 /rockmanlegendsof5islands/
