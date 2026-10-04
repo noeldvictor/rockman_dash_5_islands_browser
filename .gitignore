@@ -26,3 +26,6 @@ __pycache__/
 
 # sampled instruments cut out of a SoundFont by tools/soundfont/extract.mjs
 /web/public/soundfont/
+
+# AI-upscaled textures made from the game's art by tools/ai/textures.py
+/web/public/hd/

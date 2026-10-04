@@ -49,7 +49,8 @@ controller); none change the game's rules, and with everything off you get the p
 - **30 / 60 fps** — the game still thinks 15 times a second (every speed and timer in it is
   counted that way), so the in-between pictures are interpolated, the same way other recompiled
   console ports do it. Camera, objects and character animation are all smoothed.
-- **Texture filtering** — original sharp pixels, smooth, or an upscaled "HD" mode.
+- **Texture filtering** — original sharp pixels, smooth, an upscaled "HD" mode, or an optional
+  AI-upscaled texture pack you generate yourself (`tools/ai/textures.py`, needs a ComfyUI server).
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
 - **Field of view** and **camera distance** sliders.
 

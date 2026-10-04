@@ -37,7 +37,7 @@ export class SettingsMenu {
     this.tab = 'video';
     this.padName = null;
     /** Rows that only apply when something optional is installed: id -> boolean */
-    this.available = { legends2: false, soundfont: false };
+    this.available = { legends2: false, soundfont: false, texturePack: false };
     this.#listening = null;
     root.hidden = true;
     // keys typed in the menu never reach the game or the page shortcuts
@@ -206,7 +206,9 @@ export class SettingsMenu {
       ], 'F2 switches between Auto and original'),
       this.#select('textureFilter', 'Textures', [
         ['sharp', 'Sharp pixels (original)'], ['smooth', 'Smooth'], ['hd', 'HD (upscaled 4×, smooth)'],
-      ], 'Smooth and HD also use anisotropic filtering'),
+        ...(this.available.texturePack ? [['ai', 'AI upscaled 4×']] : []),
+      ], this.available.texturePack ? 'AI upscaled uses the texture pack made on your image server'
+        : 'Smooth and HD also use anisotropic filtering'),
       this.#slider('fov', 'Field of view', { min: 45, max: 100, step: 5, unit: '°', scale: 1 }),
       this.#select('frameRate', 'Frame rate', [
         [15, '15 fps (original)'], [30, '30 fps'], [60, '60 fps'], [0, 'Display rate'],

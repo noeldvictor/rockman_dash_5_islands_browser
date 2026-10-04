@@ -3,7 +3,7 @@
 
 let table = null;
 
-function crc32(bytes) {
+export function crc32(bytes) {
   if (!table) {
     table = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
