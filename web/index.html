@@ -87,6 +87,13 @@
       padding: .6rem .8rem; justify-content: space-between; align-items: flex-end; pointer-events: none;
       touch-action: none; user-select: none; -webkit-user-select: none; line-height: 1.2; z-index: 2; }
     body.touch #touch { display: flex; }
+    body.touch.has-pad #touch { display: none; }
+    /* the Android package: fill the screen, no button row */
+    body.app { align-items: flex-start; overflow: hidden; }
+    body.app #stage { width: 100vw; }
+    body.app #screen { height: min(calc(100vw / var(--aspect)), calc(100vh - 1.9rem)); }
+    body.app #bar, body.app #pad { display: none; }
+    body.app #soft { padding: .1rem .75rem; min-height: 1.3rem; font-size: .85rem; }
     #touch > * { pointer-events: auto; }
     #stick { width: 7.5rem; height: 7.5rem; border-radius: 50%; border: 1px solid rgba(215, 220, 229, .35);
       background: rgba(17, 21, 30, .35); display: flex; align-items: center; justify-content: center;

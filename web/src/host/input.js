@@ -78,6 +78,19 @@ export function bindingName(device, value) {
 const MOVES = new Set(['up', 'down', 'left', 'right']);
 
 /**
+ * The physical key of a keyboard event. Some sources (Android key events without a scan code,
+ * a few virtual keyboards) leave `code` empty and only say which character or key it was.
+ */
+function codeOf(e) {
+  if (e.code) return e.code;
+  const key = e.key ?? '';
+  if (key === ' ') return 'Space';
+  if (/^[a-z]$/i.test(key)) return `Key${key.toUpperCase()}`;
+  if (/^[0-9]$/.test(key)) return `Digit${key}`;
+  return key; // Enter, Escape, Tab, Backspace, ArrowUp ... are named alike
+}
+
+/**
  * Bring a controller to the Gamepad API's "standard" layout, whatever the browser reports:
  * { buttons: boolean[17], axes: [leftX, leftY, rightX, rightY] }.
  *
@@ -173,21 +186,23 @@ export class Input {
     this.setBindings(null, null);
     target.addEventListener('keydown', (e) => {
       if (!this.#enabled || e.ctrlKey || e.metaKey || e.altKey) return;
-      const actions = this.#keyboard.get(e.code);
-      if (!actions && KEYPAD[e.code] === undefined) return;
+      const code = codeOf(e);
+      const actions = this.#keyboard.get(code);
+      if (!actions && KEYPAD[code] === undefined) return;
       e.preventDefault();
       if (e.repeat) return;
-      const source = `kb:${e.code}`;
+      const source = `kb:${code}`;
       if (actions) for (const a of actions) this.#actionDown(a, source);
-      else this.press(KEYPAD[e.code], source);
+      else this.press(KEYPAD[code], source);
     });
     target.addEventListener('keyup', (e) => {
-      const actions = this.#keyboard.get(e.code);
-      if (!actions && KEYPAD[e.code] === undefined) return;
+      const code = codeOf(e);
+      const actions = this.#keyboard.get(code);
+      if (!actions && KEYPAD[code] === undefined) return;
       e.preventDefault();
-      const source = `kb:${e.code}`;
+      const source = `kb:${code}`;
       if (actions) for (const a of actions) this.#actionUp(a, source);
-      else this.release(KEYPAD[e.code], source);
+      else this.release(KEYPAD[code], source);
     });
     target.addEventListener('blur', () => this.releaseAll());
     // Poll controllers every display frame, independently of the game's own frame rate.

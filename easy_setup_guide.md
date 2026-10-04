@@ -86,6 +86,34 @@ in the browser of the device you play on (the settings menu's Extras tab can exp
 Android, open the file with Chrome; saves there may not survive between sessions, so export
 them if they matter.
 
+## Play it on Android: an app
+
+For an Android phone or an Android handheld (AYN Thor, Retroid Pocket and the like), build an
+app you install once and then play offline:
+
+```bash
+./package_android.sh
+```
+
+That writes `build/package/Rockman-DASH-5-Islands.apk` (about 27 MB). Then either:
+
+- copy the file to the device, open it there and allow the install when Android asks
+  ("install unknown apps"), or
+- connect the device by USB with USB debugging switched on and run
+  `./package_android.sh --install`.
+
+The app runs full screen in landscape, in widescreen. A built-in or Bluetooth controller works
+straight away (left stick moves, right stick looks, both sticks pressed in opens the settings);
+without one, a stick and buttons appear on the screen. Saves stay inside the app. It needs
+Android 8 or newer.
+
+`--small` leaves out the recorded music instruments (6 MB); `--full` adds the AI textures and
+Legends 2 models if you have them (about 100 MB).
+
+The script needs the Android SDK. If you have Android Studio installed it is found
+automatically; if not, the script offers to download the two parts it needs (about 300 MB).
+As with the single file: the app contains your game files, so keep it to yourself.
+
 ## If something goes wrong
 
 | What you see | What to do |

@@ -24,7 +24,8 @@ const MAX_ASPECT = 21 / 9;
 function fitAspect(wide) {
   if (params.has('aspect')) return Math.max(1, Number(params.get('aspect')));
   if (!wide) return 1;
-  const chrome = document.fullscreenElement ? 48 : 150; // soft-key row, toolbar, status line
+  // room below the game for the soft-key row, toolbar and status line
+  const chrome = document.body.classList.contains('app') ? 34 : document.fullscreenElement ? 48 : 150;
   const a = window.innerWidth / Math.max(240, window.innerHeight - chrome);
   return Math.max(1, Math.min(MAX_ASPECT, a));
 }
@@ -53,6 +54,12 @@ async function start(variant) {
   }
 
   const settings = new Settings();
+  // "app" mode (the Android package, ?app): the game fills the screen like in fullscreen, and
+  // widescreen is on unless the player has chosen otherwise
+  if (params.has('app')) {
+    document.body.classList.add('app');
+    if (localStorage.getItem('rdash.settings') === null) settings.set('wide', true, { persist: false });
+  }
   // URL overrides (for testing); not saved
   if (params.has('scale')) settings.set('resolution', Number(params.get('scale')), { persist: false });
   if (params.has('legends2')) settings.set('legends2', params.get('legends2') !== '0', { persist: false });
@@ -257,6 +264,10 @@ async function start(variant) {
   input.onGamepadChange = (name) => {
     $('pad').textContent = name ? `Controller: ${name.replace(/\s*\(.*$/, '')}` : '';
     $('pad').classList.toggle('on', !!name);
+    // with a controller in hand (a handheld's built-in one included) the on-screen stick and
+    // buttons only cover the picture
+    document.body.classList.toggle('has-pad', !!name);
+    screen.edgeHud = !document.body.classList.contains('touch') || !!name;
     menu.setPadName(name);
   };
 
@@ -325,6 +336,7 @@ async function start(variant) {
   const game = await import(/* @vite-ignore */ globalThis.rdashResolve?.(gameUrl) ?? gameUrl);
   $('status').hidden = true;
   $('stage').hidden = false;
+  applyScale(); // the stage had no size while hidden
   game.main([], (err) => {
     if (err) console.error('game terminated with an error', err);
   });

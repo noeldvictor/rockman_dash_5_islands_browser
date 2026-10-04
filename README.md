@@ -16,6 +16,8 @@ optional modern upgrades: widescreen, 60 fps, controller support, cel shading an
 3. Next time, run `./play.sh`.
 4. Optional: `./package_html.sh` packs the whole game into one HTML file you can copy to any
    device or archive, and open straight in a browser.
+5. Optional: `./package_android.sh` builds an Android app (`.apk`) for phones and Android
+   handhelds such as the AYN Thor or Retroid Pocket.
 
 **[The easy setup guide](easy_setup_guide.md)** walks through it step by step.
 
@@ -74,7 +76,8 @@ controller); none change the game's rules, and with everything off you get the p
   at the speed you push; the right stick looks around. The same is available for WASD with mouse
   look. The game's original turn-and-walk tank controls are one switch away.
 - **Controller support** with rumble, and **rebindable** keyboard and controller buttons.
-- **Touch controls** — an on-screen stick and buttons, and swipe to look.
+- **Touch controls** — an on-screen stick and buttons, and swipe to look; they step aside
+  while a controller is connected.
 - **Fast-forward** for dialogue and cutscenes: a button under the game, or hold Tab / L3.
 
 **Sound**
@@ -89,6 +92,8 @@ controller); none change the game's rules, and with everything off you get the p
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
   for the phone's (see [below](#optional-legends-2-character-models)).
 - A small toolbar over the game in fullscreen, so settings and fast-forward stay in reach.
+- **Take it anywhere** — one script packs the game into a single HTML file, another into an
+  Android app; both play offline.
 
 | Cutscene with Legends 2 models and cel shading | Settings menu |
 |---|---|
@@ -199,6 +204,7 @@ it the most complete description of the project.
 | `web/` | The web page: renderer, input, sound, storage (`src/host/`), file-format parsers (`src/formats/`), optional asset swaps (`src/mods/`) |
 | `setup_script.sh`, `play.sh` | One-step setup for Linux, and the command to start the game afterwards |
 | `package_html.sh` | Packs the built game into one self-contained HTML file |
+| `package_android.sh` | Builds an Android app (`.apk`) of the game |
 | `gamefiles/` | Where you drop your game files for the setup script (never committed) |
 | `tools/` | Build script, jar patcher, test driver and video recorder, format dump tools, SoundFont and Legends 2 extractors, AI texture and music helpers, trailer scripts |
 | `docs/` | The pictures on this page |
@@ -220,6 +226,8 @@ yet. Known rough edges:
 - The music is played with General MIDI instruments (sampled if you have the SoundFont,
   synthesised otherwise), not the phone's own sound source, so it does not sound like the phone.
 - Above 15 fps, the 2D layer (HUD, dialogue) still updates 15 times a second.
+- The Android app was run in an emulator (it installs, plays and has sound), not yet on a real
+  handheld; its built-in controller support is untested.
 - Most options were checked with screenshots and automated runs rather than long play sessions.
   Touch controls and mouse capture have only been tried with simulated input, not on real
   devices, and nobody has yet judged the music by ear.
