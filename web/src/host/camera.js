@@ -21,6 +21,25 @@ export class FreeCamera {
    */
   analogHeading = NaN;
   analogSpeed = 1;
+  /** Settings > Controls: look speed factor, and whether pushing up looks down. */
+  sensitivity = 1;
+  invertY = false;
+  #distance = 1;
+
+  /** Factor on the follow camera's distance from the player (read by ax.java). */
+  get distance() {
+    return this.#distance;
+  }
+
+  set distance(value) {
+    this.#distance = value;
+    this.#changed = true;
+  }
+
+  /** Look input from a stick or the mouse, with the user's sensitivity and inversion applied. */
+  look(dYaw, dPitch) {
+    this.rotate(dYaw * this.sensitivity, dPitch * this.sensitivity * (this.invertY ? -1 : 1));
+  }
   #world = 0;
   #lastReport = -1e9;
   #changed = false;

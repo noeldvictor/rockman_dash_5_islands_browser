@@ -9,7 +9,7 @@ import { FreeCamera } from './host/camera.js';
 import { Cheats } from './host/cheats.js';
 import { Settings } from './host/settings.js';
 import { SettingsMenu } from './host/menu.js';
-import { setSmoothTextures } from './host/texfilter.js';
+import { setTextureFilter, setMaxAnisotropy } from './host/texfilter.js';
 import { setLighting, setCelShading, shadows, markScenery } from './host/lighting.js';
 import { keyOf } from './host/contentkey.js';
 import { legends2 } from './mods/legends2.js';
@@ -67,9 +67,12 @@ async function start(variant) {
   applyScale();
   window.addEventListener('resize', applyScale);
   document.addEventListener('fullscreenchange', applyScale);
+  settings.bind('sideFill', (v) => { screen.sideFill = v; });
   settings.on('wide', applyScale);
   settings.on('resolution', applyScale);
-  settings.bind('textureFilter', (v) => setSmoothTextures(v === 'smooth'));
+  setMaxAnisotropy(screen.renderer.capabilities.getMaxAnisotropy());
+  settings.bind('textureFilter', setTextureFilter);
+  settings.bind('fov', (v) => { screen.g3d.fovScale = v / 60; });
   settings.bind('frameRate', (v) => { screen.frameRate = v; });
   settings.bind('lighting', setLighting);
   settings.bind('celShading', setCelShading);
@@ -104,21 +107,43 @@ async function start(variant) {
       applyFast();
     }
   };
-  // mouse free-look: drag on the game
+  settings.bind('lookSensitivity', (v) => { camera.sensitivity = v; });
+  settings.bind('invertY', (v) => { camera.invertY = v; });
+  settings.bind('cameraDistance', (v) => { camera.distance = v; });
+  // mouse free-look: drag on the game, or (Settings > Controls) click it to capture the mouse:
+  // move to look, left button buster, right button lock-on, Esc releases
   {
     const canvas = $('screen');
+    const MOUSE_ACTIONS = { 0: 'buster', 2: 'lock' };
+    const captured = () => document.pointerLockElement === canvas;
     let dragging = false;
     canvas.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'mouse' || e.button !== 0) return;
-      dragging = true;
-      canvas.setPointerCapture(e.pointerId);
+      if (e.pointerType !== 'mouse') return;
+      if (captured()) {
+        if (MOUSE_ACTIONS[e.button]) input.actionDown(MOUSE_ACTIONS[e.button], `mouse:${e.button}`);
+      } else if (settings.get('mouseLook')) {
+        canvas.requestPointerLock?.();
+      } else if (e.button === 0) {
+        dragging = true;
+        canvas.setPointerCapture(e.pointerId);
+      }
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (dragging && camera.following) camera.rotate(e.movementX * 0.35, e.movementY * 0.25);
+      if (!camera.following) return;
+      if (captured()) camera.look(e.movementX * 0.12, e.movementY * 0.1);
+      else if (dragging) camera.look(e.movementX * 0.35, e.movementY * 0.25);
     });
-    const stop = () => { dragging = false; };
+    const stop = (e) => {
+      dragging = false;
+      if (MOUSE_ACTIONS[e.button]) input.actionUp(MOUSE_ACTIONS[e.button], `mouse:${e.button}`);
+    };
     canvas.addEventListener('pointerup', stop);
     canvas.addEventListener('pointercancel', stop);
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('pointerlockchange', () => {
+      if (!captured()) for (const b of Object.keys(MOUSE_ACTIONS)) input.actionUp(MOUSE_ACTIONS[b], `mouse:${b}`);
+    });
+    settings.on('mouseLook', (on) => { if (!on && captured()) document.exitPointerLock(); });
   }
   // on-screen buttons for touch devices
   if (window.matchMedia('(pointer: coarse)').matches || params.has('touch')) {
@@ -166,6 +191,7 @@ async function start(variant) {
       createImage: (w, h) => screen.createImage(w, h),
       decodeImage: (data, len) => Img.decode(new Uint8Array(data.buffer, data.byteOffset, len)),
       aspect: () => screen.aspect,
+      fov: (gameFov) => gameFov * screen.g3d.fovScale,
       hudBegin: () => screen.hudBegin(),
       hudEnd: () => screen.graphics.setWide(false),
     },
@@ -205,11 +231,38 @@ async function start(variant) {
       location.reload();
     },
     onToggle: (open) => {
+      if (open && document.pointerLockElement) document.exitPointerLock();
       paused = open;
       input.setEnabled(!open);
       if (!open) for (const cb of heldFrames.splice(0)) requestAnimationFrame(cb);
     },
   });
+  menu.onExportSave = async () => {
+    const blob = new Blob([JSON.stringify(await resources.exportSaves())], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `rockman-dash-save-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+  menu.onImportSave = () => {
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = '.json,application/json';
+    picker.addEventListener('change', async () => {
+      const file = picker.files[0];
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        if (!confirm('Replace the progress saved in this browser with this file?')) return;
+        await resources.importSaves(data);
+        location.reload();
+      } catch (e) {
+        alert(`Could not import the save: ${e.message}`);
+      }
+    });
+    picker.click();
+  };
   input.onGamepadChange = (name) => {
     $('pad').textContent = name ? `Controller: ${name.replace(/\s*\(.*$/, '')}` : '';
     $('pad').classList.toggle('on', !!name);

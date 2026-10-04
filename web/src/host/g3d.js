@@ -246,6 +246,8 @@ export class G3D {
     this.projection = { kind: 'perspective', near: 1, far: 1000, angle: 60, w: 240, h: 240 };
     this.queue = [];
     this.touched = new Set();
+    /** Field of view option: factor on the angle of full-screen perspective views. */
+    this.fovScale = 1;
   }
 
   setClipRect(x, y, w, h) {
@@ -296,6 +298,14 @@ export class G3D {
     else mesh.matrix.copy(matrix);
     mesh.matrixWorld.copy(mesh.matrix);
     this.queue.push(mesh);
+  }
+
+  /** The batch's projection: the game's, with the field of view option applied to full-screen views. */
+  #projection() {
+    const p = this.projection;
+    const [x, y, w, h] = this.clip;
+    if (this.fovScale === 1 || p.kind !== 'perspective' || !(x <= 0 && y <= 0 && w >= 240 && h >= 240)) return p;
+    return { ...p, angle: Math.min(150, p.angle * this.fovScale) };
   }
 
   /** Full-screen 3D fills the whole (possibly wide) canvas; inset views keep the 240 square. */
@@ -377,7 +387,7 @@ export class G3D {
     screen.record3D({
       wide,
       clip: [...this.clip],
-      projection: this.projection,
+      projection: this.#projection(),
       view: this.view.clone(),
       viewBefore: null, // set by link()
       objects,
@@ -409,7 +419,8 @@ export class G3D {
     for (let i = 0; i < newer.length; i++) {
       const a = older[i];
       const b = newer[i];
-      if (a.projection.kind !== b.projection.kind || a.clip.join() !== b.clip.join()) return false;
+      if (a.projection.kind !== b.projection.kind || a.projection.angle !== b.projection.angle
+        || a.clip.join() !== b.clip.join()) return false;
       if (cameraCut(a.view, b.view)) return false;
       b.viewBefore = a.view.equals(b.view) ? null : a.view;
       const [x, y, w, h] = b.clip;

@@ -43,14 +43,18 @@ extends s {
     private int portFar;
     private int portFov;
     private float portAspect = 1.0f;
+    private float portFovUsed;
 
     public final void a(int n2, int n3, int n4) {
         this.portNear = n2;
         this.portFar = n3;
         this.portFov = n4;
         this.portAspect = Host.aspect();
+        this.portFovUsed = Host.fov((float)n4); // port: field of view option
         long l2 = 0L;
-        l2 = (long)(Math.tan(0.017453292500000002 * (double)(n4 >> 1)) * 4096.0);
+        l2 = this.portFovUsed == (float)n4
+            ? (long)(Math.tan(0.017453292500000002 * (double)(n4 >> 1)) * 4096.0)
+            : (long)(Math.tan(0.017453292500000002 * (double)this.portFovUsed * 0.5) * 4096.0);
         this.b = 4096L / l2 << 12;
         this.c = 4096L;
         // port: horizontal slope for the (possibly wider) view; equals this.b at 1:1
@@ -90,8 +94,9 @@ extends s {
     }
 
     public final void a() {
-        if (this.portFov != 0 && Host.aspect() != this.portAspect) {
-            this.a(this.portNear, this.portFar, this.portFov); // port: aspect ratio changed
+        if (this.portFov != 0 && (Host.aspect() != this.portAspect
+                || Host.fov((float)this.portFov) != this.portFovUsed)) {
+            this.a(this.portNear, this.portFar, this.portFov); // port: aspect ratio or FOV changed
         }
         int n2 = 0;
         long l2 = 0L;
@@ -169,7 +174,8 @@ extends s {
         }
         float dYaw = Host.cameraYaw();
         float dPitch = Host.cameraPitch();
-        if (dYaw == 0.0f && dPitch == 0.0f) {
+        float dScale = Host.cameraDistance();
+        if (dYaw == 0.0f && dPitch == 0.0f && dScale == 1.0f) {
             return;
         }
         float vx = this.G.get(3) - portPivotX;
@@ -204,6 +210,7 @@ extends s {
         this.G.set(2, nfx);
         this.G.set(6, nfy);
         this.G.set(10, nfz);
+        dist *= dScale; // camera distance option; the sweep below still stops it at walls
         float cx = portPivotX - nfx * dist;
         float cy = portPivotY - nfy * dist;
         float cz = portPivotZ - nfz * dist;

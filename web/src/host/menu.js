@@ -107,20 +107,21 @@ export class SettingsMenu {
     return this.#row(label, select, hint);
   }
 
-  #slider(key, label) {
+  /** `scale`: slider units per setting unit (100 = the setting is a 0..1 fraction shown as %). */
+  #slider(key, label, { min = 0, max = 100, step = 5, unit = '%', scale = 100 } = {}, hint) {
     const s = this.settings;
-    const value = el('span', { class: 'value' }, `${Math.round(s.get(key) * 100)}%`);
+    const value = el('span', { class: 'value' }, `${Math.round(s.get(key) * scale)}${unit}`);
     const range = el('input', {
-      type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(s.get(key) * 100)),
+      type: 'range', min: String(min), max: String(max), step: String(step), value: String(Math.round(s.get(key) * scale)),
       oninput: (e) => {
         // no re-render while dragging: it would replace the slider under the pointer
         this.#rendering = true;
-        s.set(key, Number(e.target.value) / 100);
+        s.set(key, Number(e.target.value) / scale);
         this.#rendering = false;
-        value.textContent = `${e.target.value}%`;
+        value.textContent = `${e.target.value}${unit}`;
       },
     });
-    return this.#row(label, el('span', { class: 'slider' }, range, value));
+    return this.#row(label, el('span', { class: 'slider' }, range, value), hint);
   }
 
   // ---- tabs --------------------------------------------------------------------------------
@@ -128,11 +129,16 @@ export class SettingsMenu {
   #video() {
     return [
       this.#check('wide', 'Widescreen', 'Fill the window instead of the phone\'s square screen (F3)'),
+      this.#check('sideFill', 'Blurred side bars',
+        'In widescreen, fill the bars beside the title and menus with a blurred copy of the picture'),
       this.#select('resolution', 'Resolution', [
         ['auto', 'Auto (fit the window)'], [1, '240p (original)'], [2, '480p'], [3, '720p'], [4, '960p'],
         [6, '1440p'], [8, '1920p'],
       ], 'F2 switches between Auto and original'),
-      this.#select('textureFilter', 'Textures', [['sharp', 'Sharp pixels'], ['smooth', 'Smooth']]),
+      this.#select('textureFilter', 'Textures', [
+        ['sharp', 'Sharp pixels (original)'], ['smooth', 'Smooth'], ['hd', 'HD (upscaled 4×, smooth)'],
+      ], 'Smooth and HD also use anisotropic filtering'),
+      this.#slider('fov', 'Field of view', { min: 45, max: 100, step: 5, unit: '°', scale: 1 }),
       this.#select('frameRate', 'Frame rate', [
         [15, '15 fps (original)'], [30, '30 fps'], [60, '60 fps'], [0, 'Display rate'],
       ], 'Above 15, in-between pictures are interpolated; the game itself still steps 15 times a second'),
@@ -216,8 +222,13 @@ export class SettingsMenu {
       el('p', { class: `pad ${this.padName ? 'on' : ''}` }, this.padName
         ? `Controller: ${this.padName.replace(/\s*\(.*$/, '')}`
         : 'No controller detected (press a button on it)'),
-      this.#check('analogMove', 'Direct stick movement',
-        'The left stick moves in the direction you push, at the speed you push; off = the game\'s tank controls'),
+      this.#check('analogMove', 'Direct movement',
+        'The left stick or the movement keys move in the direction you push, relative to the camera; off = the game\'s tank controls'),
+      this.#check('mouseLook', 'Capture the mouse',
+        'Click the game to look with the mouse: left button buster, right button lock-on, Esc releases. Off = drag to look'),
+      this.#slider('lookSensitivity', 'Look sensitivity', { min: 25, max: 250, step: 25 }),
+      this.#check('invertY', 'Invert vertical look'),
+      this.#slider('cameraDistance', 'Camera distance', { min: 60, max: 200, step: 10 }),
       el('table', { class: 'binds' },
         el('thead', {}, el('tr', {}, el('th', {}, 'Action'), el('th', {}, 'Keyboard'), el('th', {}, 'Controller'))),
         el('tbody', {}, ...rows)),
@@ -255,6 +266,11 @@ export class SettingsMenu {
       this.available.legends2
         ? this.#check('legends2', 'Legends 2 character models', 'Draw characters with the installed Mega Man Legends 2 models')
         : el('p', { class: 'note' }, 'Legends 2 character models are not installed (see tools/mml2/).'),
+      el('div', { class: 'buttons' },
+        el('button', { type: 'button', onclick: () => this.onExportSave?.() }, 'Export save file'),
+        el('button', { type: 'button', onclick: () => this.onImportSave?.() }, 'Import save file…')),
+      el('p', { class: 'note' }, 'Saves are kept in this browser only. Export one to back it up or move it '
+        + 'to another computer; importing replaces what is saved here and restarts the game.'),
       el('div', { class: 'buttons' },
         el('button', { type: 'button', onclick: () => this.settings.resetAll() }, 'Restore default settings'),
         el('button', {

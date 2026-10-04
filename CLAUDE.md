@@ -196,11 +196,20 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   camera holds its world heading and the stick steers relative to it by pressing the game's own
   turn/forward keys (the game itself only has tank controls). `Mods.sky` adds the yaw offset to
   the 2D sky's scroll position (and wraps it; the original leaves gaps for negative headings).
-- **Direct stick movement** (Settings > Controls, off by default; `input.js`, `camera.js`,
-  `Mods.java`): the left stick's direction becomes the player's heading at once (`Mods.camera`
-  rotates the player with the game's own turn calls) and its deflection scales the walking speed
-  (`Mods.walk`). While lock-on is held the game strafes, so the stick acts as a d-pad there.
-  Keyboard movement is unchanged.
+- **Direct movement** (Settings > Controls, off by default; `input.js`, `camera.js`,
+  `Mods.java`): the direction of the left stick, or of the movement keys/d-pad relative to the
+  camera, becomes the player's heading at once (`Mods.camera` rotates the player with the game's
+  own turn calls); stick deflection scales the walking speed (`Mods.walk`). While lock-on is held
+  the game strafes, so they act as a d-pad there. The four movement actions never press phone
+  keys directly: `Input.#syncMove` turns them into keys every time they change and every display
+  frame, because play / menu / lock-on can change while they are held.
+- **Camera options** (Settings > Controls): look sensitivity and vertical inversion
+  (`FreeCamera.look`), camera distance (`ax.portFreeLook` scales the follow distance; the wall
+  sweep still applies), and mouse capture: click the game to lock the pointer, move to look, left
+  button buster, right button lock-on, Esc releases (default is drag to look).
+- **Save export / import** (Settings > Extras; `Resources.exportSaves` / `importSaves`): a JSON
+  file with everything persisted in IndexedDB (scratchpad segments, SD writes) plus the server
+  backup. Note the scratchpad's data segment is in it, i.e. the current island's game data.
 - **Settings menu** (F1 or the Settings button; `settings.js`, `menu.js`): one overlay with
   Video, Audio, Controls, Cheats and Extras tabs. `Settings` is a single persisted object
   (`localStorage['rdash.settings']`) with change listeners; modules subscribe in `main.js`. The
@@ -211,9 +220,15 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
 - **Fast-forward** (hold Tab or L3, or toggle with the Fast-forward button under the game / the
   ▶▶ touch button): 4x game speed through the same frame-limiter mechanism as the speed cheat,
   for dialogue and cutscenes.
-- **Video options**: resolution (auto or a fixed multiple of 240p), texture filter (`texfilter.js`:
-  nearest, or bilinear with mipmaps; textures register on creation), frame rate (see Rendering
-  model), and three effects in `lighting.js`, all off by default:
+- **Video options**: resolution (auto or a fixed multiple of 240p); texture filter
+  (`texfilter.js`; textures register on creation): sharp (nearest), smooth (trilinear +
+  anisotropic) or HD (the game's textures enlarged 4x with Scale2x applied twice, then filtered);
+  in the filtered modes transparent texels take their opaque neighbours' colour so cut-outs get
+  no colour-key fringe. Field of view (`G3D.fovScale` scales the angle of full-screen perspective
+  views; `ax.java` widens its culling frustum to match through `Host.fov`). Blurred side bars
+  (`Screen.#fillSideBars`: in widescreen, 2D-only screens get an enlarged, blurred, dimmed copy
+  of the picture in the bars instead of black). Frame rate (see Rendering model). And three
+  effects in `lighting.js`, all off by default:
   - lighting: flat shading from screen-space derivatives on opaque model and map materials;
   - cel shading (characters only): two flat tones, plus a black outline: each opaque mesh is
     drawn again as a shell pushed 0.12 units away from the camera and widened in screen space
@@ -326,8 +341,8 @@ Keep this section current.
   quad `Primitive`s, and never overrides blend/transparency on a `Group`, so lit materials,
   point/line/sprite primitives and those overrides are absent. The game logic runs at its
   native 15 fps; higher frame rates are interpolated (Legends 2 model poses still step). The
-  settings menu has no controller navigation. Direct movement is stick-only. Free-look pitch
-  does not move the 2D sky. The new options were checked with screenshots and a simulated
+  settings menu has no controller navigation. Free-look pitch does not move the 2D sky. Mouse
+  capture has not been exercised (headless tests cannot lock the pointer). The new options were checked with screenshots and a simulated
   gamepad, not played by a person.
 - Legends 2 replacement: MegaMan, Roll, Tron and Teisel are replaced in the New Game intro
   cutscenes and the in-game player (assembled from parts) is replaced during play; poses match

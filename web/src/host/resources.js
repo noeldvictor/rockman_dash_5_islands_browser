@@ -7,6 +7,7 @@ import { unzipSync } from 'fflate';
 
 const DB_NAME = 'rdash';
 const STORE = 'files';
+const SAVE_FORMAT = 'rockman-dash-5-islands-save';
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -256,6 +257,40 @@ export class Resources {
       if (n === name && !out.some((x) => x.length === b.length && x.every((v, i) => v === b[i]))) out.push(b);
     }
     return out;
+  }
+
+  /**
+   * Everything saved in this browser (scratchpad and SD-card writes, and the save the game
+   * "uploaded" to its server), as a plain object that can be stored as a JSON file.
+   */
+  async exportSaves() {
+    const files = {};
+    if (this.db) {
+      for (const [key, bytes] of await idbGetAll(this.db)) {
+        let text = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        files[key] = btoa(text);
+      }
+    }
+    return { format: SAVE_FORMAT, version: 1, saved: new Date().toISOString(), files, backup: localStorage.getItem('rdash.backup') };
+  }
+
+  /** Replace everything saved in this browser with an exported save; takes effect on reload. */
+  async importSaves(data) {
+    if (!data || data.format !== SAVE_FORMAT || typeof data.files !== 'object') {
+      throw new Error('This is not a save file exported from this game.');
+    }
+    if (!this.db) throw new Error('This browser has no storage available for saves.');
+    const entries = Object.entries(data.files).map(([key, text]) => [key, Uint8Array.from(atob(text), (c) => c.charCodeAt(0))]);
+    await new Promise((resolve, reject) => {
+      const tx = this.db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).clear();
+      for (const [key, bytes] of entries) tx.objectStore(STORE).put(bytes, key);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    if (typeof data.backup === 'string') localStorage.setItem('rdash.backup', data.backup);
+    else localStorage.removeItem('rdash.backup');
   }
 
   /** Forget persisted scratchpad/SD changes (next load starts from the shipped data). */

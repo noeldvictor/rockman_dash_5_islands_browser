@@ -8,6 +8,10 @@
 // becomes the last step when the frame is presented. The WebGL back buffer is preserved between
 // frames, like the phone's.
 //
+// Widescreen leaves bars either side of pictures that are not full-width 3D (title, menus, the
+// map screen). They are filled with an enlarged, blurred, dimmed copy of the picture itself
+// (option "sideFill"), or left black.
+//
 // Normally a frame is replayed once, when the game presents it. With "smooth motion" on, frames
 // with full-screen 3D are instead replayed on every display frame with the camera and every
 // object moved part of the way from where the previous game frame had them (the game logic runs
@@ -20,6 +24,11 @@ import { G3D } from './g3d.js';
 /** The phone's display, and the coordinate space of everything the game draws. */
 export const WIDTH = 240;
 export const HEIGHT = 240;
+
+/** Side bar fill: size of the blurred copy, its blur radius, and how much it is dimmed. */
+const FILL_SIZE = 96;
+const FILL_BLUR = 5;
+const FILL_DIM = 0.55;
 
 /** Longest game frame interval interpolated over; slower than this is a pause, not motion. */
 const MAX_INTERVAL = 150;
@@ -65,6 +74,16 @@ export class Screen {
     this.quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     this.quadMaterial = new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false });
     this.quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.quadMaterial));
+
+    /** Fill the widescreen side bars of 2D screens with a blurred copy of the picture. */
+    this.sideFill = true;
+    this.fillCanvas = makeCanvas(FILL_SIZE, FILL_SIZE);
+    this.fillTexture = new THREE.CanvasTexture(this.fillCanvas);
+    this.fillTexture.colorSpace = THREE.NoColorSpace;
+    this.fillScene = new THREE.Scene();
+    const fillMaterial = new THREE.MeshBasicMaterial({ map: this.fillTexture, depthTest: false, depthWrite: false });
+    fillMaterial.color.setScalar(FILL_DIM); // colours pass through as they are: no sRGB conversion
+    this.fillScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fillMaterial));
 
     this.g3d = new G3D(this);
     this.graphics = new G2D(makeCanvas(1, 1).getContext('2d'), 1, this);
@@ -208,8 +227,8 @@ export class Screen {
     const k = this.scale;
     this.stats.replays++;
     this.lastReplay = performance.now();
-    if (this.xoff > 0 && !frame.wide) {
-      // no full-width 3D (menus, title): keep the side bars black
+    const bars = this.xoff > 0 && !frame.wide; // no full-width 3D (menus, title): bars at the sides
+    if (bars && !this.sideFill) {
       r.setScissorTest(true);
       r.setClearColor(0x000000, 1);
       r.setScissor(0, 0, this.xoff * k, HEIGHT * k);
@@ -235,6 +254,29 @@ export class Screen {
       this.quadMaterial.map = texture;
       r.render(this.quadScene, this.quadCamera);
     }
+    if (bars && this.sideFill) this.#fillSideBars();
     r.setScissorTest(false);
+  }
+
+  /** Draw an enlarged, blurred, dimmed copy of the 240-wide picture into the bars beside it. */
+  #fillSideBars() {
+    const r = this.renderer;
+    const k = this.scale;
+    const ctx = this.fillCanvas.getContext('2d');
+    ctx.filter = `blur(${FILL_BLUR}px)`;
+    // drawn a little oversize, so the blur does not fade out towards the edges
+    const pad = FILL_BLUR * 2;
+    ctx.drawImage(this.canvas, this.xoff * k, 0, WIDTH * k, HEIGHT * k, -pad, -pad, FILL_SIZE + 2 * pad, FILL_SIZE + 2 * pad);
+    const t = this.fillTexture;
+    // "cover": the square picture is as wide as the whole view, so only a middle band shows
+    t.repeat.set(1, HEIGHT / this.viewWidth);
+    t.offset.set(0, (1 - HEIGHT / this.viewWidth) / 2);
+    t.needsUpdate = true;
+    r.setViewport(0, 0, this.viewWidth * k, HEIGHT * k);
+    r.setScissorTest(true);
+    for (const x of [0, this.xoff + WIDTH]) {
+      r.setScissor(x * k, 0, this.xoff * k, HEIGHT * k);
+      r.render(this.fillScene, this.quadCamera);
+    }
   }
 }

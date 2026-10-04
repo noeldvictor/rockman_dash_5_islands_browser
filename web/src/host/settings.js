@@ -8,10 +8,14 @@ const KEY = 'rdash.settings';
 export const DEFAULTS = {
   // video
   wide: false,
+  /** widescreen: fill the bars beside 2D screens with a blurred copy of the picture */
+  sideFill: true,
   /** 'auto' (fit the window), or canvas pixels per phone pixel: 1 = the phone's 240p */
   resolution: 'auto',
-  /** 'sharp' (nearest, like the phone) or 'smooth' (bilinear + mipmaps) */
+  /** 'sharp' (nearest, like the phone), 'smooth' (filtered) or 'hd' (enlarged 4x, then filtered) */
   textureFilter: 'sharp',
+  /** vertical field of view of full-screen 3D, degrees; the game's own is 60 */
+  fov: 60,
   lighting: false,
   shadows: false,
   /**
@@ -33,6 +37,13 @@ export const DEFAULTS = {
   /** action id -> gamepad button index[]; null = the defaults in input.js */
   gamepad: null,
   analogMove: false,
+  /** click the game to capture the mouse: move to look, left button buster, right button lock-on */
+  mouseLook: false,
+  /** look speed factor for the right stick and the mouse */
+  lookSensitivity: 1,
+  invertY: false,
+  /** factor on the follow camera's distance from the player */
+  cameraDistance: 1,
   // extras
   legends2: true,
 };

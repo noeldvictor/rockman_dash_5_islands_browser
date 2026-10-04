@@ -100,6 +100,14 @@ public final class Host {
     @JSBody(script = "return globalThis.DOJA.camera.consumeChanged();")
     public static native boolean cameraChanged();
 
+    /** Camera distance option: factor on the follow camera's distance from the player. */
+    @JSBody(script = "return globalThis.DOJA.camera.distance;")
+    public static native float cameraDistance();
+
+    /** Field of view option: the angle to use where the game asks for {@code gameFov} degrees. */
+    @JSBody(params = {"gameFov"}, script = "return globalThis.DOJA.gfx.fov(gameFov);")
+    public static native float fov(float gameFov);
+
     /**
      * Direct stick movement: the world heading (degrees, same convention as the player heading
      * passed to cameraReport) the stick points at, or NaN when it is not in use.

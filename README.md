@@ -42,13 +42,16 @@ All of these are options in the settings menu (press **F1**); none change the ga
 - **Widescreen** — the 3D view fills the window; the life and weapon gauges move to the screen
   edges.
 - **High resolution** — sharp at any window size, or the original 240p if you prefer.
+- **Texture filtering** — original sharp pixels, smooth, or an upscaled "HD" mode.
+- **Blurred side bars** behind the title and menus in widescreen, instead of black.
 - **30 / 60 fps** — the game still thinks 15 times a second (every speed and timer in it is
   counted that way), so the in-between pictures are interpolated, the same way other recompiled
   console ports do it.
-- **Free camera** — look around with the right stick or by dragging the mouse.
+- **Free camera** — look around with the right stick or the mouse, with sensitivity, invert,
+  field of view and camera distance options.
 - **Controller support** with rumble, and **rebindable** keyboard and controller buttons.
-- **Direct stick movement** — push the stick where you want to go, instead of turn-and-walk
-  tank controls.
+- **Direct movement** — push the stick (or WASD) where you want to go, relative to the camera,
+  instead of turn-and-walk tank controls.
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
 - **Fast-forward** for dialogue and cutscenes (a button under the game, or hold Tab / L3), and
   **fast loading** (seconds instead of half a minute per area).
@@ -56,7 +59,7 @@ All of these are options in the settings menu (press **F1**); none change the ga
 - **Cheats** — infinite life, infinite weapon energy, max zenny, game speed.
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
   for the phone's (see [below](#optional-legends-2-character-models)).
-- Saves are kept in your browser.
+- Saves are kept in your browser, and can be **exported and imported** as a file.
 
 | Cutscene with Legends 2 models and cel shading | Settings menu |
 |---|---|

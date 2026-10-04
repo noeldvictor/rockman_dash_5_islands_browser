@@ -65,6 +65,8 @@ export function bindingName(device, value) {
     .replace(/^(Shift|Control|Alt|Meta)(Left|Right)$/, '$2 $1').replace(/^Numpad/, 'Numpad ');
 }
 
+const MOVES = new Set(['up', 'down', 'left', 'right']);
+
 const STICK_DEADZONE = 0.45;
 // direct stick movement (Settings > Controls)
 const ANALOG_DEADZONE = 0.2;
@@ -91,11 +93,15 @@ export class Input {
   camera = null;
   #lastPoll = 0;
   /**
-   * Direct stick movement: during play the left stick turns the player to face where it points
-   * at once and sets the walking speed (through the camera state, read by Mods.java), instead of
-   * pressing the game's turn keys. While locked on the game strafes, so the stick is a d-pad.
+   * Direct movement: during play the left stick, or the movement keys, turn the player to face
+   * where they point (relative to the camera) at once, and the stick sets the walking speed
+   * (through the camera state, read by Mods.java), instead of pressing the game's turn keys.
+   * While locked on the game strafes, so they act as a d-pad there, as in menus and cutscenes.
    */
   analogMove = false;
+  #dirs = new Map(); // movement action id -> Set of sources holding it
+  #moveKeys = new Set(); // phone keys held for the movement actions
+  #keyHeading = NaN; // direct movement from keys: world heading, NaN when not in use
   /** False while the settings menu is open: the game then sees no input at all. */
   #enabled = true;
   /** Called for page-side actions ('recenter', 'fast'): (id, down) => void */
@@ -177,7 +183,55 @@ export class Input {
     this.#capturePrimed = false;
   }
 
+  /** Hold / let go of an action by id (for inputs the page handles itself, e.g. mouse buttons). */
+  actionDown(id, source) {
+    const action = ACTIONS.find((a) => a.id === id);
+    if (action && this.#enabled) this.#actionDown(action, source);
+  }
+
+  actionUp(id, source) {
+    const action = ACTIONS.find((a) => a.id === id);
+    if (action) this.#actionUp(action, source);
+  }
+
+  /**
+   * Turn the movement actions being held into phone keys: the plain d-pad keys, or with direct
+   * movement during play "walk forward" plus a heading for Mods.java. Called on every change
+   * and every display frame, since play / menu / lock-on can change while keys are held.
+   */
+  #syncMove() {
+    const held = (id) => (this.#dirs.get(id)?.size ?? 0) > 0;
+    const x = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
+    const y = (held('down') ? 1 : 0) - (held('up') ? 1 : 0);
+    const cam = this.camera;
+    const lockedOn = (this.#state & (1 << LOCK_ON)) !== 0;
+    const want = new Set();
+    this.#keyHeading = NaN;
+    if (this.analogMove && cam && cam.following && !lockedOn) {
+      if (x || y) {
+        // up = away from the camera; screen-right is 90 degrees below the camera heading
+        this.#keyHeading = cam.worldYaw - (Math.atan2(x, -y) * 180) / Math.PI;
+        want.add(KEY.UP);
+      }
+    } else {
+      if (held('up')) want.add(KEY.UP);
+      if (held('down')) want.add(KEY.DOWN);
+      if (held('left')) want.add(KEY.LEFT);
+      if (held('right')) want.add(KEY.RIGHT);
+    }
+    for (const key of want) if (!this.#moveKeys.has(key)) this.press(key, 'move');
+    for (const key of this.#moveKeys) if (!want.has(key)) this.release(key, 'move');
+    this.#moveKeys = want;
+  }
+
   #actionDown(action, source) {
+    if (MOVES.has(action.id)) {
+      let held = this.#dirs.get(action.id);
+      if (!held) this.#dirs.set(action.id, (held = new Set()));
+      held.add(source);
+      this.#syncMove();
+      return;
+    }
     if (!action.host) {
       for (const k of action.keys) this.press(k, source);
       return;
@@ -190,6 +244,11 @@ export class Input {
   }
 
   #actionUp(action, source) {
+    if (MOVES.has(action.id)) {
+      this.#dirs.get(action.id)?.delete(source);
+      this.#syncMove();
+      return;
+    }
     if (!action.host) {
       for (const k of action.keys) this.release(k, source);
       return;
@@ -227,6 +286,9 @@ export class Input {
       held.clear();
       this.onAction?.(id, false);
     }
+    this.#dirs.clear();
+    this.#moveKeys.clear();
+    this.#keyHeading = NaN;
     this.#padDown.clear();
     this.#padActions.clear();
   }
@@ -268,6 +330,11 @@ export class Input {
       return;
     }
     if (!this.#enabled) return;
+    this.#syncMove();
+    if (!Number.isNaN(this.#keyHeading)) {
+      steering = true;
+      analogHeading = this.#keyHeading;
+    }
     for (const pad of pads) {
       if (!pad || !pad.connected) continue;
       const [x = 0, y = 0, rx = 0, ry = 0] = pad.axes;
@@ -276,7 +343,7 @@ export class Input {
       if (following) {
         const lx = Math.abs(rx) > LOOK_DEADZONE ? rx : 0;
         const ly = Math.abs(ry) > LOOK_DEADZONE ? ry : 0;
-        if (lx || ly) cam.rotate(lx * LOOK_YAW_SPEED * dt, ly * LOOK_PITCH_SPEED * dt);
+        if (lx || ly) cam.look(lx * LOOK_YAW_SPEED * dt, ly * LOOK_PITCH_SPEED * dt);
       } else {
         if (rx < -STICK_DEADZONE) down.add(KEY.LEFT);
         if (rx > STICK_DEADZONE) down.add(KEY.RIGHT);
