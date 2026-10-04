@@ -393,12 +393,20 @@ export class Input {
     let analogHeading = NaN;
     let analogSpeed = 1;
     let anyButton = -1;
+    const playing = !!cam && cam.following;
     for (const pad of pads) {
       if (!pad.virtual) name ??= pad.id;
       pad.buttons.forEach((held, index) => {
         if (!held) return;
         if (anyButton < 0) anyButton = index;
-        for (const a of this.#gamepad.get(index) ?? []) actions.add(a);
+        const bound = this.#gamepad.get(index) ?? [];
+        // A button that both jumps and confirms (A / Cross by default) jumps during play and
+        // confirms everywhere else: in play the game fires the buster on its Select key too.
+        const both = bound.some((a) => a.id === 'jump') && bound.some((a) => a.id === 'confirm');
+        for (const a of bound) {
+          if (both && a.id === (playing ? 'confirm' : 'jump')) continue;
+          actions.add(a);
+        }
       });
     }
     if (name !== this.#padName) {

@@ -38,7 +38,10 @@ public final class Mods {
         bp mission = game.w;
         boolean gameplay = game.u != null && game.u.f == STATE_MISSION && mission != null
                 && mission.d != null && mission.d.a != null && mission.a != null && mission.e != null
-                && !(mission.e.e || mission.e.f || mission.d.a.D || mission.f || mission.g || mission.h);
+                && !(mission.e.e || mission.e.f || mission.d.a.D || mission.f || mission.g || mission.h)
+                // the mission's own prompts and notices ("Return to the Flutter?" Yes/No, item found,
+                // results ...): they are driven with left/right and Select, like a menu
+                && !(mission.e.b || mission.e.c || mission.e.d || mission.e.i || mission.e.l);
         if (!gameplay) {
             ax.portCamera = null;
             ax.portMap = null;
