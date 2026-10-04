@@ -17,16 +17,32 @@ const BUSTER = KEY.NUM9;
 const SPECIAL = KEY.NUM6;
 const LOCK_ON = KEY.NUM3;
 
-// KeyboardEvent.code -> phone key
-const KEYBOARD = {
-  ArrowLeft: KEY.LEFT, ArrowUp: KEY.UP, ArrowRight: KEY.RIGHT, ArrowDown: KEY.DOWN,
-  KeyA: KEY.LEFT, KeyW: KEY.UP, KeyD: KEY.RIGHT, KeyS: KEY.DOWN,
-  Enter: KEY.SELECT, NumpadEnter: KEY.SELECT,
-  Space: JUMP, KeyX: JUMP,
-  KeyZ: BUSTER, KeyJ: BUSTER,
-  KeyC: SPECIAL, KeyK: SPECIAL,
-  ShiftLeft: LOCK_ON, ShiftRight: LOCK_ON, KeyV: LOCK_ON, KeyL: LOCK_ON,
-  KeyQ: KEY.SOFT1, Backspace: KEY.SOFT1, KeyE: KEY.SOFT2, Escape: KEY.SOFT2,
+/**
+ * Everything that can be bound to a keyboard key or a controller button (Settings > Controls).
+ *   keys: phone keys the action holds down; host: an action handled by the page instead
+ *   kb: default KeyboardEvent.code list; pad: default standard-mapping gamepad button indices
+ * The controller defaults are laid out like Mega Man Legends on a PlayStation pad: Cross jump,
+ * Square buster, Triangle special weapon, Circle confirm, L1/R1 turn, R2/L2 lock-on. Cross also
+ * confirms, since the phone's Select key does nothing during play.
+ */
+export const ACTIONS = [
+  { id: 'up', label: 'Forward / up', keys: [KEY.UP], kb: ['ArrowUp', 'KeyW'], pad: [12] },
+  { id: 'down', label: 'Back / down', keys: [KEY.DOWN], kb: ['ArrowDown', 'KeyS'], pad: [13] },
+  { id: 'left', label: 'Turn left', keys: [KEY.LEFT], kb: ['ArrowLeft', 'KeyA'], pad: [14, 4] },
+  { id: 'right', label: 'Turn right', keys: [KEY.RIGHT], kb: ['ArrowRight', 'KeyD'], pad: [15, 5] },
+  { id: 'jump', label: 'Jump', keys: [JUMP], kb: ['Space', 'KeyX'], pad: [0] },
+  { id: 'buster', label: 'Buster', keys: [BUSTER], kb: ['KeyZ', 'KeyJ'], pad: [2] },
+  { id: 'special', label: 'Special weapon', keys: [SPECIAL], kb: ['KeyC', 'KeyK'], pad: [3] },
+  { id: 'lock', label: 'Lock-on', keys: [LOCK_ON], kb: ['ShiftLeft', 'ShiftRight', 'KeyV', 'KeyL'], pad: [6, 7] },
+  { id: 'confirm', label: 'Confirm (menus, dialogue)', keys: [KEY.SELECT], kb: ['Enter', 'NumpadEnter'], pad: [0, 1] },
+  { id: 'soft1', label: 'Left soft key (Map, Back)', keys: [KEY.SOFT1], kb: ['KeyQ', 'Backspace'], pad: [8] },
+  { id: 'soft2', label: 'Right soft key (Items)', keys: [KEY.SOFT2], kb: ['KeyE', 'Escape'], pad: [9] },
+  { id: 'recenter', label: 'Re-centre camera', host: true, kb: ['KeyR'], pad: [11] },
+  { id: 'fast', label: 'Fast-forward (hold)', host: true, kb: ['Tab'], pad: [10] },
+];
+
+/** The phone keypad itself; an action bound to one of these codes takes precedence. */
+const KEYPAD = {
   Digit0: KEY.NUM0, Digit1: KEY.NUM1, Digit2: KEY.NUM2, Digit3: KEY.NUM3, Digit4: KEY.NUM4,
   Digit5: KEY.NUM5, Digit6: KEY.NUM6, Digit7: KEY.NUM7, Digit8: KEY.NUM8, Digit9: KEY.NUM9,
   Numpad0: KEY.NUM0, Numpad1: KEY.NUM1, Numpad2: KEY.NUM2, Numpad3: KEY.NUM3, Numpad4: KEY.NUM4,
@@ -34,16 +50,25 @@ const KEYBOARD = {
   NumpadMultiply: KEY.ASTERISK, NumpadDivide: KEY.POUND, Minus: KEY.ASTERISK, Equal: KEY.POUND,
 };
 
-// Standard-mapping gamepad button index -> phone key(s). Laid out like Mega Man Legends on a
-// PlayStation pad: Cross jump, Square buster, Triangle special weapon, Circle confirm, L1/R1 turn,
-// R2/L2 lock-on. A/Cross also confirms, since Select does nothing during play.
-const GAMEPAD = {
-  12: [KEY.UP], 13: [KEY.DOWN], 14: [KEY.LEFT], 15: [KEY.RIGHT],
-  0: [JUMP, KEY.SELECT], 1: [KEY.SELECT], 2: [BUSTER], 3: [SPECIAL],
-  4: [KEY.LEFT], 5: [KEY.RIGHT], 6: [LOCK_ON], 7: [LOCK_ON],
-  8: [KEY.SOFT1], 9: [KEY.SOFT2],
-};
+/** Default bindings: action id -> list of key codes / button indices. */
+export function defaultBindings(device) {
+  return Object.fromEntries(ACTIONS.map((a) => [a.id, [...(device === 'keyboard' ? a.kb : a.pad)]]));
+}
+
+const PAD_BUTTON_NAMES = ['A / Cross', 'B / Circle', 'X / Square', 'Y / Triangle', 'L1', 'R1', 'L2', 'R2',
+  'Select / Share', 'Start / Options', 'L3', 'R3', 'D-pad up', 'D-pad down', 'D-pad left', 'D-pad right', 'Home'];
+
+/** Display name of a bound key or button. */
+export function bindingName(device, value) {
+  if (device === 'gamepad') return PAD_BUTTON_NAMES[value] ?? `Button ${value}`;
+  return String(value).replace(/^Key|^Digit/, '').replace(/^Arrow(.+)$/, '$1 arrow')
+    .replace(/^(Shift|Control|Alt|Meta)(Left|Right)$/, '$2 $1').replace(/^Numpad/, 'Numpad ');
+}
+
 const STICK_DEADZONE = 0.45;
+// direct stick movement (Settings > Controls)
+const ANALOG_DEADZONE = 0.2;
+const ANALOG_MIN_SPEED = 0.3;
 const LOOK_DEADZONE = 0.2;
 const LOOK_YAW_SPEED = 150; // degrees per second at full deflection
 const LOOK_PITCH_SPEED = 90;
@@ -51,26 +76,13 @@ const LOOK_PITCH_SPEED = 90;
 const AIM_TOLERANCE = 12;
 const WALK_CONE = 75;
 
-/** Human-readable control reference, shown on the page. */
-export const CONTROLS = [
-  ['Move / turn', 'Arrows or WASD', 'D-pad; left stick moves relative to the camera; L1 / R1 turn'],
-  ['Look around', 'Drag the mouse on the game; R to re-centre', 'Right stick; press it to re-centre'],
-  ['Jump', 'Space or X', 'A / Cross'],
-  ['Buster, confirm', 'Z or J', 'X / Square'],
-  ['Special weapon', 'C or K', 'Y / Triangle'],
-  ['Lock-on', 'Shift, V or L', 'R2 / L2'],
-  ['Select (menus, dialogue)', 'Enter', 'A / Cross or B / Circle'],
-  ['Left soft key (Map, Back)', 'Q or Backspace', 'Select / Share'],
-  ['Right soft key (Items)', 'E or Esc', 'Start / Options'],
-  ['Phone keypad 0-9 * #', '0-9, - and =', ''],
-];
-
 export class Input {
   /** Set by the game (rdash.Host): (type, key) => void */
   handler = null;
   #state = 0;
   #sources = new Map(); // key -> Set of source ids holding it down
   #padDown = new Set();
+  #padActions = new Set();
   #rumbling = false;
   /** Called with the connected pad's name, or null when none is connected. */
   onGamepadChange = null;
@@ -78,19 +90,41 @@ export class Input {
   /** @type {import('./camera.js').FreeCamera|null} set by main.js */
   camera = null;
   #lastPoll = 0;
+  /**
+   * Direct stick movement: during play the left stick turns the player to face where it points
+   * at once and sets the walking speed (through the camera state, read by Mods.java), instead of
+   * pressing the game's turn keys. While locked on the game strafes, so the stick is a d-pad.
+   */
+  analogMove = false;
+  /** False while the settings menu is open: the game then sees no input at all. */
+  #enabled = true;
+  /** Called for page-side actions ('recenter', 'fast'): (id, down) => void */
+  onAction = null;
+  #keyboard = new Map(); // KeyboardEvent.code -> actions
+  #gamepad = new Map(); // button index -> actions
+  #hostDown = new Map(); // host action id -> Set of sources holding it
+  #capture = null; // waiting for a controller button (rebinding)
+  #capturePrimed = false;
 
   constructor(target = window) {
+    this.setBindings(null, null);
     target.addEventListener('keydown', (e) => {
-      const k = KEYBOARD[e.code];
-      if (k === undefined || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!this.#enabled || e.ctrlKey || e.metaKey || e.altKey) return;
+      const actions = this.#keyboard.get(e.code);
+      if (!actions && KEYPAD[e.code] === undefined) return;
       e.preventDefault();
-      if (!e.repeat) this.press(k, `kb:${e.code}`);
+      if (e.repeat) return;
+      const source = `kb:${e.code}`;
+      if (actions) for (const a of actions) this.#actionDown(a, source);
+      else this.press(KEYPAD[e.code], source);
     });
     target.addEventListener('keyup', (e) => {
-      const k = KEYBOARD[e.code];
-      if (k === undefined) return;
+      const actions = this.#keyboard.get(e.code);
+      if (!actions && KEYPAD[e.code] === undefined) return;
       e.preventDefault();
-      this.release(k, `kb:${e.code}`);
+      const source = `kb:${e.code}`;
+      if (actions) for (const a of actions) this.#actionUp(a, source);
+      else this.release(KEYPAD[e.code], source);
     });
     target.addEventListener('blur', () => this.releaseAll());
     // Poll controllers every display frame, independently of the game's own frame rate.
@@ -103,6 +137,65 @@ export class Input {
 
   state() {
     return this.#state;
+  }
+
+  /**
+   * @param {Record<string, string[]>|null} keyboard  action id -> key codes (null = defaults)
+   * @param {Record<string, number[]>|null} gamepad   action id -> button indices (null = defaults)
+   */
+  setBindings(keyboard, gamepad) {
+    this.releaseAll();
+    const build = (bindings, device) => {
+      const map = new Map();
+      const all = { ...defaultBindings(device), ...(bindings ?? {}) };
+      for (const action of ACTIONS) {
+        for (const value of all[action.id] ?? []) {
+          if (!map.has(value)) map.set(value, []);
+          map.get(value).push(action);
+        }
+      }
+      return map;
+    };
+    this.#keyboard = build(keyboard, 'keyboard');
+    this.#gamepad = build(gamepad, 'gamepad');
+  }
+
+  /** The game sees no keys while disabled (the settings menu is open). */
+  setEnabled(on) {
+    this.#enabled = !!on;
+    if (on) return;
+    this.releaseAll();
+    if (this.camera) {
+      this.camera.analogHeading = NaN;
+      this.camera.analogSpeed = 1;
+    }
+  }
+
+  /** Report the next controller button pressed (for rebinding) instead of acting on it. */
+  captureButton(callback) {
+    this.#capture = callback;
+    this.#capturePrimed = false;
+  }
+
+  #actionDown(action, source) {
+    if (!action.host) {
+      for (const k of action.keys) this.press(k, source);
+      return;
+    }
+    let held = this.#hostDown.get(action.id);
+    if (!held) this.#hostDown.set(action.id, (held = new Set()));
+    const was = held.size > 0;
+    held.add(source);
+    if (!was) this.onAction?.(action.id, true);
+  }
+
+  #actionUp(action, source) {
+    if (!action.host) {
+      for (const k of action.keys) this.release(k, source);
+      return;
+    }
+    const held = this.#hostDown.get(action.id);
+    if (held && held.delete(source) && held.size === 0) this.onAction?.(action.id, false);
   }
 
   press(key, source = 'api') {
@@ -129,7 +222,13 @@ export class Input {
       this.#state &= ~(1 << key);
       this.handler?.(1, key);
     }
+    for (const [id, held] of this.#hostDown) {
+      if (held.size === 0) continue;
+      held.clear();
+      this.onAction?.(id, false);
+    }
     this.#padDown.clear();
+    this.#padActions.clear();
   }
 
   pollGamepads() {
@@ -138,16 +237,39 @@ export class Input {
     this.#lastPoll = now;
     const cam = this.camera;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    const down = new Set();
+    const down = new Set(); // phone keys held through the sticks
+    const actions = new Set(); // actions held through buttons
     let name = null;
     let steering = false;
+    let analogHeading = NaN;
+    let analogSpeed = 1;
+    let anyButton = -1;
     for (const pad of pads) {
       if (!pad || !pad.connected) continue;
       name ??= pad.id;
-      for (const [index, keys] of Object.entries(GAMEPAD)) {
-        const b = pad.buttons[index];
-        if (b && (b.pressed || b.value > 0.5)) for (const k of keys) down.add(k);
+      pad.buttons.forEach((b, index) => {
+        if (!(b.pressed || b.value > 0.5)) return;
+        if (anyButton < 0) anyButton = index;
+        for (const a of this.#gamepad.get(index) ?? []) actions.add(a);
+      });
+    }
+    if (name !== this.#padName) {
+      this.#padName = name;
+      this.onGamepadChange?.(name);
+    }
+    if (this.#capture) {
+      // rebinding: wait for all buttons to be released, then take the next one pressed
+      if (anyButton < 0) this.#capturePrimed = true;
+      else if (this.#capturePrimed) {
+        const done = this.#capture;
+        this.#capture = null;
+        done(anyButton);
       }
+      return;
+    }
+    if (!this.#enabled) return;
+    for (const pad of pads) {
+      if (!pad || !pad.connected) continue;
       const [x = 0, y = 0, rx = 0, ry = 0] = pad.axes;
       const following = !!cam && cam.following;
       // right stick: look around (free camera) during play, plain turning otherwise
@@ -155,22 +277,28 @@ export class Input {
         const lx = Math.abs(rx) > LOOK_DEADZONE ? rx : 0;
         const ly = Math.abs(ry) > LOOK_DEADZONE ? ry : 0;
         if (lx || ly) cam.rotate(lx * LOOK_YAW_SPEED * dt, ly * LOOK_PITCH_SPEED * dt);
-        if (pad.buttons[11]?.pressed) cam.recenter();
       } else {
         if (rx < -STICK_DEADZONE) down.add(KEY.LEFT);
         if (rx > STICK_DEADZONE) down.add(KEY.RIGHT);
       }
       // left stick: steer relative to the camera during play, d-pad otherwise
       const mag = Math.hypot(x, y);
-      if (following && mag > STICK_DEADZONE) {
+      const lockedOn = (this.#state & (1 << LOCK_ON)) !== 0;
+      const direct = this.analogMove && following && !lockedOn;
+      if (direct && mag > ANALOG_DEADZONE) {
         steering = true;
         // stick up = away from the camera; screen-right is 90 degrees below the camera heading
+        analogHeading = cam.worldYaw - (Math.atan2(x, -y) * 180) / Math.PI;
+        analogSpeed = Math.min(1, Math.max(ANALOG_MIN_SPEED, (mag - ANALOG_DEADZONE) / (0.95 - ANALOG_DEADZONE)));
+        down.add(KEY.UP);
+      } else if (following && !this.analogMove && mag > STICK_DEADZONE) {
+        steering = true;
         const want = cam.worldYaw - (Math.atan2(x, -y) * 180) / Math.PI;
         const delta = wrap180(want - cam.playerYaw);
         if (delta > AIM_TOLERANCE) down.add(KEY.LEFT);
         else if (delta < -AIM_TOLERANCE) down.add(KEY.RIGHT);
         if (Math.abs(delta) < WALK_CONE) down.add(KEY.UP);
-      } else if (!following) {
+      } else if (!following || (this.analogMove && lockedOn)) {
         if (x < -STICK_DEADZONE) down.add(KEY.LEFT);
         if (x > STICK_DEADZONE) down.add(KEY.RIGHT);
         if (y < -STICK_DEADZONE) down.add(KEY.UP);
@@ -179,13 +307,16 @@ export class Input {
     }
     // while steering with the stick, the camera holds its heading instead of swinging behind
     cam?.setHoldWorld(steering);
-    if (name !== this.#padName) {
-      this.#padName = name;
-      this.onGamepadChange?.(name);
+    if (cam) {
+      cam.analogHeading = analogHeading;
+      cam.analogSpeed = analogSpeed;
     }
-    for (const key of down) if (!this.#padDown.has(key)) this.press(key, 'pad');
-    for (const key of this.#padDown) if (!down.has(key)) this.release(key, 'pad');
+    for (const key of down) if (!this.#padDown.has(key)) this.press(key, 'stick');
+    for (const key of this.#padDown) if (!down.has(key)) this.release(key, 'stick');
     this.#padDown = down;
+    for (const a of actions) if (!this.#padActions.has(a)) this.#actionDown(a, 'pad');
+    for (const a of this.#padActions) if (!actions.has(a)) this.#actionUp(a, 'pad');
+    this.#padActions = actions;
     if (this.#rumbling) this.#pulse();
   }
 

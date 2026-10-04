@@ -2,11 +2,16 @@ import { Resources } from './host/resources.js';
 import { Screen } from './host/screen.js';
 import { Img } from './host/g2d.js';
 import { g3dFactory } from './host/g3d.js';
-import { Input, CONTROLS } from './host/input.js';
+import { Input } from './host/input.js';
 import { Audio } from './host/audio.js';
 import { Net } from './host/net.js';
 import { FreeCamera } from './host/camera.js';
 import { Cheats } from './host/cheats.js';
+import { Settings } from './host/settings.js';
+import { SettingsMenu } from './host/menu.js';
+import { setSmoothTextures } from './host/texfilter.js';
+import { setLighting, setCelShading, shadows } from './host/lighting.js';
+import { legends2 } from './mods/legends2.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -22,8 +27,7 @@ function fitAspect(wide) {
   return Math.max(1, Math.min(MAX_ASPECT, a));
 }
 
-function fitScale(hires) {
-  if (!hires) return 1;
+function fitScale() {
   // match the canvas' CSS height (see index.html) in device pixels
   const css = $('screen').getBoundingClientRect().height || (window.innerHeight - 150);
   const size = css * (window.devicePixelRatio || 1);
@@ -40,25 +44,43 @@ async function start(variant) {
     $('status').textContent = `Loading… ${done}/${total}`;
   });
 
-  let hires = localStorage.getItem('rdash.hires') !== '0';
-  if (params.has('scale')) hires = params.get('scale') !== '1';
-  let wide = localStorage.getItem('rdash.wide') === '1';
+  const settings = new Settings();
+  // URL overrides (for testing); not saved
+  if (params.has('scale')) settings.set('resolution', Number(params.get('scale')), { persist: false });
+  if (params.has('legends2')) settings.set('legends2', params.get('legends2') !== '0', { persist: false });
   const screen = new Screen($('screen'));
   const applyScale = () => {
-    const aspect = fitAspect(wide);
+    const aspect = fitAspect(settings.get('wide'));
     $('stage').style.setProperty('--aspect', String(aspect));
-    screen.setLayout(params.has('scale') ? Number(params.get('scale')) : fitScale(hires), aspect);
-    $('screen').classList.toggle('pixelated', !hires);
+    const resolution = settings.get('resolution');
+    screen.setLayout(resolution === 'auto' ? fitScale() : resolution, aspect);
+    $('screen').classList.toggle('pixelated', resolution !== 'auto');
     $('soft').style.width = `${$('screen').getBoundingClientRect().width}px`;
   };
   applyScale();
   window.addEventListener('resize', applyScale);
   document.addEventListener('fullscreenchange', applyScale);
+  settings.on('wide', applyScale);
+  settings.on('resolution', applyScale);
+  settings.bind('textureFilter', (v) => setSmoothTextures(v === 'smooth'));
+  settings.bind('frameRate', (v) => { screen.frameRate = v; });
+  settings.bind('lighting', setLighting);
+  settings.bind('celShading', setCelShading);
+  settings.bind('shadows', (v) => { shadows.enabled = v; });
 
   const input = new Input(window);
   const camera = new FreeCamera();
   input.camera = camera;
   const cheats = new Cheats();
+  const applyBindings = () => input.setBindings(settings.get('keyboard'), settings.get('gamepad'));
+  applyBindings();
+  settings.bind('analogMove', (v) => { input.analogMove = v; });
+  settings.on('keyboard', applyBindings);
+  settings.on('gamepad', applyBindings);
+  input.onAction = (id, down) => {
+    if (id === 'recenter' && down) camera.recenter();
+    else if (id === 'fast') cheats.fastForward = down;
+  };
   // mouse free-look: drag on the game
   {
     const canvas = $('screen');
@@ -97,7 +119,14 @@ async function start(variant) {
     button.addEventListener('contextmenu', (e) => e.preventDefault());
   }
   const audio = new Audio();
+  settings.bind('muted', (v) => audio.setMuted(v));
+  const applyVolumes = () => audio.setCategoryVolumes(settings.get('musicVolume'), settings.get('effectsVolume'));
+  applyVolumes();
+  settings.on('musicVolume', applyVolumes);
+  settings.on('effectsVolume', applyVolumes);
   const net = new Net(resources);
+  let paused = false;
+  const heldFrames = [];
 
   globalThis.DOJA = {
     // performance.now() deadline: frame pacing is skipped until then (set while a loading
@@ -113,9 +142,14 @@ async function start(variant) {
       createImage: (w, h) => screen.createImage(w, h),
       decodeImage: (data, len) => Img.decode(new Uint8Array(data.buffer, data.byteOffset, len)),
       aspect: () => screen.aspect,
+      hudBegin: () => screen.hudBegin(),
+      hudEnd: () => screen.graphics.setWide(false),
     },
     camera,
     cheats,
+    legends2,
+    settings,
+    shadows,
     app: {
       param: (name) => resources.jam[name] ?? null,
       terminate: () => {
@@ -126,101 +160,78 @@ async function start(variant) {
         $(key === 0 ? 'soft1' : 'soft2').textContent = label || '';
       },
       log: (msg) => console.info('[game]', msg),
-      onFrame: (cb) => requestAnimationFrame(cb),
+      onFrame: (cb) => {
+        // the game thread waits here once per frame; while paused it simply is not woken
+        if (paused) heldFrames.push(cb);
+        else requestAnimationFrame(cb);
+      },
     },
     screenObject: screen,
   };
 
-  // controller indicator + controls reference
-  input.onGamepadChange = (name) => {
-    $('pad').textContent = name ? `Controller: ${name.replace(/\s*\(.*$/, '')}` : 'No controller detected (press a button on it)';
-    $('pad').classList.toggle('on', !!name);
-  };
-  input.onGamepadChange(null);
-  $('controls-body').innerHTML = CONTROLS
-    .map(([what, keys, pad]) => `<tr><td>${what}</td><td>${keys}</td><td>${pad}</td></tr>`).join('');
-  $('btn-controls').addEventListener('click', () => {
-    $('controls').hidden = !$('controls').hidden;
+  // settings menu (pauses the game while open)
+  const menu = new SettingsMenu({
+    root: $('settings'),
+    settings,
+    input,
+    cheats,
+    onResetData: async () => {
+      await resources.reset();
+      localStorage.removeItem('rdash.backup');
+      location.reload();
+    },
+    onToggle: (open) => {
+      paused = open;
+      input.setEnabled(!open);
+      if (!open) for (const cb of heldFrames.splice(0)) requestAnimationFrame(cb);
+    },
   });
+  input.onGamepadChange = (name) => {
+    $('pad').textContent = name ? `Controller: ${name.replace(/\s*\(.*$/, '')}` : '';
+    $('pad').classList.toggle('on', !!name);
+    menu.setPadName(name);
+  };
 
   // page controls
-  let muted = localStorage.getItem('rdash.muted') === '1';
   const refreshBar = () => {
-    $('btn-res').textContent = hires ? 'Original resolution' : 'High resolution';
-    $('btn-wide').textContent = wide ? 'Original 1:1' : 'Widescreen';
-    $('btn-mute').textContent = muted ? 'Unmute' : 'Mute';
-    $('btn-cheats').classList.toggle('on', cheats.active);
+    $('btn-wide').textContent = settings.get('wide') ? 'Original 1:1' : 'Widescreen';
+    $('btn-mute').textContent = settings.get('muted') ? 'Unmute' : 'Mute';
+    $('btn-settings').classList.toggle('on', cheats.active);
   };
-  const toggleWide = () => {
-    wide = !wide;
-    localStorage.setItem('rdash.wide', wide ? '1' : '0');
-    applyScale();
-    refreshBar();
-  };
-
-  // cheat menu
-  const syncCheats = () => {
-    $('cheat-life').checked = cheats.infiniteLife;
-    $('cheat-energy').checked = cheats.infiniteEnergy;
-    $('cheat-speed').value = String(cheats.speed);
-    cheats.save();
-    refreshBar();
-  };
-  $('cheat-life').addEventListener('change', (e) => { cheats.infiniteLife = e.target.checked; syncCheats(); });
-  $('cheat-energy').addEventListener('change', (e) => { cheats.infiniteEnergy = e.target.checked; syncCheats(); });
-  $('cheat-speed').addEventListener('change', (e) => { cheats.speed = Number(e.target.value); syncCheats(); });
-  $('cheat-zenny').addEventListener('click', () => cheats.maxZenny());
-  $('cheat-refill').addEventListener('click', () => cheats.refill());
-  const toggleCheats = () => { $('cheats').hidden = !$('cheats').hidden; };
-  $('btn-cheats').addEventListener('click', toggleCheats);
-  for (const el of document.querySelectorAll('#cheats input, #cheats select, #cheats button')) {
-    el.addEventListener('keydown', (e) => e.stopPropagation());
-    el.addEventListener('change', () => el.blur());
-    el.addEventListener('click', () => { if (el.tagName === 'BUTTON') el.blur(); });
-  }
-  const toggleRes = () => {
-    hires = !hires;
-    localStorage.setItem('rdash.hires', hires ? '1' : '0');
-    applyScale();
-    refreshBar();
-  };
-  const toggleMute = () => {
-    muted = !muted;
-    localStorage.setItem('rdash.muted', muted ? '1' : '0');
-    audio.setMuted?.(muted);
-    refreshBar();
-  };
+  menu.onCheats = refreshBar;
+  settings.on('*', refreshBar);
+  refreshBar();
+  const toggle = (key) => settings.set(key, !settings.get(key));
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else $('stage').requestFullscreen?.();
   };
-  audio.setMuted?.(muted);
-  syncCheats();
-  $('btn-res').addEventListener('click', toggleRes);
-  $('btn-wide').addEventListener('click', toggleWide);
-  $('btn-mute').addEventListener('click', toggleMute);
+  $('btn-settings').addEventListener('click', () => menu.toggle());
+  $('btn-wide').addEventListener('click', () => toggle('wide'));
+  $('btn-mute').addEventListener('click', () => toggle('muted'));
   $('btn-full').addEventListener('click', toggleFullscreen);
-  $('btn-reset').addEventListener('click', async () => {
-    if (!confirm('Delete all saved progress and settings for this game in this browser?')) return;
-    await resources.reset();
-    localStorage.removeItem('rdash.backup');
-    location.reload();
-  });
   for (const b of document.querySelectorAll('#bar button')) {
     b.addEventListener('keydown', (e) => e.preventDefault()); // keep Space/Enter for the game
     b.addEventListener('click', () => b.blur());
   }
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.code === 'F2') toggleRes();
-    else if (e.code === 'F3') toggleWide();
-    else if (e.code === 'F4') toggleCheats();
-    else if (e.code === 'KeyR') camera.recenter();
-    else if (e.code === 'KeyM') toggleMute();
+    if (e.code === 'F1') menu.toggle();
+    else if (menu.isOpen) return;
+    else if (e.code === 'F2') settings.set('resolution', settings.get('resolution') === 'auto' ? 1 : 'auto');
+    else if (e.code === 'F3') toggle('wide');
+    else if (e.code === 'F4') menu.open('cheats');
+    else if (e.code === 'KeyM') toggle('muted');
     else if (e.code === 'KeyF') toggleFullscreen();
     else return;
     e.preventDefault();
   });
+
+  // optional Legends 2 models (only if the user installed them; see tools/mml2/)
+  if (await legends2.load('mml2', (name) => resources.findAll(name))) {
+    menu.available.legends2 = true;
+    settings.bind('legends2', (v) => { legends2.enabled = v; });
+  }
 
   const game = await import(/* @vite-ignore */ new URL(`game/${variant}/game.js`, document.baseURI).href);
   $('status').hidden = true;

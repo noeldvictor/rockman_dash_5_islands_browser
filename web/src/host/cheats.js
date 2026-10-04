@@ -8,30 +8,42 @@ const INFINITE_ENERGY = 2;
 const MAX_ZENNY = 4;
 const REFILL = 8;
 
+/** Game speed while the fast-forward key is held. */
+const FAST_FORWARD = 4;
+
 export class Cheats {
   infiniteLife = false;
   infiniteEnergy = false;
-  /** Game speed multiplier: 1 (normal), 2 or 3. */
-  speed = 1;
+  /** Chosen game speed multiplier: 1 (normal), 2 or 3. */
+  baseSpeed = 1;
+  /** True while the fast-forward key is held (dialogue, cutscenes, backtracking). */
+  fastForward = false;
   #once = 0;
 
   constructor() {
     try {
-      Object.assign(this, JSON.parse(localStorage.getItem(KEY) || '{}'));
+      const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+      this.infiniteLife = !!saved.infiniteLife;
+      this.infiniteEnergy = !!saved.infiniteEnergy;
+      this.baseSpeed = [1, 2, 3].includes(saved.speed) ? saved.speed : 1;
     } catch {
       // ignore a corrupt setting
     }
-    this.speed = [1, 2, 3].includes(this.speed) ? this.speed : 1;
   }
 
   save() {
     localStorage.setItem(KEY, JSON.stringify({
-      infiniteLife: this.infiniteLife, infiniteEnergy: this.infiniteEnergy, speed: this.speed,
+      infiniteLife: this.infiniteLife, infiniteEnergy: this.infiniteEnergy, speed: this.baseSpeed,
     }));
   }
 
+  /** Game speed multiplier in effect (read by Mods.java every frame). */
+  get speed() {
+    return this.fastForward ? Math.max(this.baseSpeed, FAST_FORWARD) : this.baseSpeed;
+  }
+
   get active() {
-    return this.infiniteLife || this.infiniteEnergy || this.speed !== 1;
+    return this.infiniteLife || this.infiniteEnergy || this.baseSpeed !== 1;
   }
 
   maxZenny() {

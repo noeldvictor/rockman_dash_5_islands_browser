@@ -29,18 +29,44 @@
     #bar button:hover { background: #222a3a; }
     #stage:fullscreen { background: #000; justify-content: center; height: 100%; }
     #stage:fullscreen #screen { height: min(calc(100vw / var(--aspect)), calc(100vh - 3rem)); }
-    #stage:fullscreen #bar, #stage:fullscreen #pad, #stage:fullscreen #controls, #stage:fullscreen #cheats { display: none; }
-    #cheats { display: flex; gap: .4rem 1rem; flex-wrap: wrap; justify-content: center; align-items: center;
-      font-size: .8rem; color: #aab2c2; margin: .1rem 0 .4rem; padding: .4rem .7rem;
-      border: 1px solid #2f3747; border-radius: .5rem; max-width: 40rem; }
-    #cheats button, #cheats select { font: inherit; padding: .2rem .5rem; border-radius: .4rem;
-      border: 1px solid #2f3747; background: #171c27; color: #aab2c2; }
+    #stage:fullscreen #bar, #stage:fullscreen #pad { display: none; }
     #bar button.on { border-color: #b08a2e; color: #e6c15a; }
     #pad { color: #5f6779; font-size: .8rem; }
     #pad.on { color: #7fc28a; }
-    #controls { font-size: .8rem; color: #aab2c2; border-collapse: collapse; margin: .4rem 0; }
-    #controls th { text-align: left; color: #5f6779; font-weight: 500; }
-    #controls th, #controls td { padding: .12rem .7rem; border-bottom: 1px solid #1c2230; }
+    #stage { position: relative; }
+    #settings { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center;
+      justify-content: center; background: rgba(5, 7, 11, .6); }
+    #settings .panel { width: min(46rem, calc(100vw - 1rem)); max-height: calc(100% - 1rem); display: flex;
+      flex-direction: column; background: #11151e; border: 1px solid #2f3747; border-radius: .7rem;
+      box-shadow: 0 1rem 3rem rgba(0, 0, 0, .6); outline: none; font-size: .9rem; }
+    #settings .tabs { display: flex; gap: .2rem; padding: .5rem .6rem 0; border-bottom: 1px solid #2f3747; }
+    #settings button, #settings select { font: inherit; color: #c5ccd9; background: #171c27;
+      border: 1px solid #2f3747; border-radius: .4rem; padding: .25rem .6rem; cursor: pointer; }
+    #settings button:hover { background: #222a3a; }
+    #settings .tab { border-bottom: none; border-radius: .4rem .4rem 0 0; padding: .4rem .9rem; color: #8b93a3; }
+    #settings .tab.on { background: #222a3a; color: #e6c15a; }
+    #settings .close { margin-left: auto; border: none; background: none; font-size: 1.2rem; }
+    #settings .body { padding: .7rem 1rem; overflow-y: auto; }
+    #settings .row { display: grid; grid-template-columns: 13rem 12rem 1fr; gap: .2rem .8rem; align-items: center;
+      padding: .3rem 0; }
+    #settings .row input[type=checkbox] { justify-self: start; width: 1.1rem; height: 1.1rem; }
+    #settings .row small, #settings .note { color: #6f7889; font-size: .8rem; }
+    #settings .slider { display: flex; align-items: center; gap: .5rem; }
+    #settings .slider input { flex: 1; min-width: 0; }
+    #settings .value { width: 2.6rem; text-align: right; color: #8b93a3; font-size: .8rem; }
+    #settings .buttons { display: flex; gap: .5rem; flex-wrap: wrap; margin: .6rem 0 .2rem; }
+    #settings .danger { border-color: #6b2f37; color: #e08a94; }
+    #settings .pad { color: #6f7889; margin: 0 0 .3rem; }
+    #settings .pad.on { color: #7fc28a; }
+    #settings .binds { width: 100%; border-collapse: collapse; margin-top: .4rem; }
+    #settings .binds th { text-align: left; color: #6f7889; font-weight: 500; }
+    #settings .binds th, #settings .binds td { padding: .18rem .5rem .18rem 0; border-bottom: 1px solid #1c2230; }
+    #settings .chip { display: inline-flex; align-items: center; gap: .15rem; margin: .1rem .25rem .1rem 0;
+      padding: 0 0 0 .45rem; border: 1px solid #2f3747; border-radius: .4rem; background: #171c27; }
+    #settings .chip .x { border: none; background: none; padding: 0 .35rem; color: #6f7889; }
+    #settings .add { padding: 0 .45rem; color: #8b93a3; }
+    #settings .add.listening { color: #e6c15a; border-color: #b08a2e; }
+    #settings .foot { padding: .45rem 1rem; border-top: 1px solid #2f3747; color: #6f7889; font-size: .8rem; }
     #help { color: #5f6779; font-size: .8rem; text-align: center; }
     #touch { display: none; width: min(100vw, 30rem); box-sizing: border-box; padding: .5rem .75rem;
       justify-content: space-between; align-items: center; touch-action: none; user-select: none;
@@ -69,28 +95,13 @@
     <canvas id="screen" width="240" height="240"></canvas>
     <div id="soft"><span id="soft1"></span><span id="soft2"></span></div>
     <div id="bar">
-      <button id="btn-res" title="F2">Original resolution</button>
+      <button id="btn-settings" title="F1">Settings</button>
       <button id="btn-wide" title="F3">Widescreen</button>
       <button id="btn-mute" title="M">Mute</button>
       <button id="btn-full" title="F">Fullscreen</button>
-      <button id="btn-controls">Controls</button>
-      <button id="btn-cheats" title="F4">Cheats</button>
-      <button id="btn-reset">Reset saved data</button>
-    </div>
-    <div id="cheats" hidden>
-      <label><input type="checkbox" id="cheat-life"> Infinite life</label>
-      <label><input type="checkbox" id="cheat-energy"> Infinite special weapon energy</label>
-      <label>Game speed
-        <select id="cheat-speed"><option value="1">1× (normal)</option><option value="2">2×</option><option value="3">3×</option></select>
-      </label>
-      <button id="cheat-refill">Refill life and energy</button>
-      <button id="cheat-zenny">Max zenny</button>
     </div>
     <div id="pad"></div>
-    <table id="controls" hidden>
-      <thead><tr><th>Action</th><th>Keyboard</th><th>Controller</th></tr></thead>
-      <tbody id="controls-body"></tbody>
-    </table>
+    <div id="settings" hidden></div>
     <div id="touch">
       <div class="pad">
         <span></span><button data-key="17">▲</button><span></span>

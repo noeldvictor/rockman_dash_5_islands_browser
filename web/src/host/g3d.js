@@ -13,6 +13,10 @@ import * as THREE from 'three';
 import { decodeBMP8 } from '../formats/bmp.js';
 import { createFigure, createActionTable } from './figure.js';
 import { createGroup } from './group.js';
+import { legends2 } from '../mods/legends2.js';
+import { registerTexture } from './texfilter.js';
+import { makeLit, makeOutline, updateDraw, shadows } from './lighting.js';
+import { FIGURE_SCALE } from './conventions.js';
 
 export const TYPE = {
   ACTION_TABLE: 1, FIGURE: 2, TEXTURE: 3, PRIMITIVE: 6, GROUP: 7,
@@ -63,12 +67,10 @@ export class Texture3D {
       }
       t = new THREE.DataTexture(rgba, width, height, THREE.RGBAFormat);
       t.colorSpace = THREE.NoColorSpace;
-      t.magFilter = THREE.NearestFilter;
-      t.minFilter = THREE.NearestFilter;
       t.wrapS = THREE.RepeatWrapping;
       t.wrapT = THREE.RepeatWrapping;
       t.flipY = false; // row 0 of the data is the top of the image; v grows downwards
-      t.needsUpdate = true;
+      registerTexture(t);
       this.textures.set(colorKey, t);
     }
     return t;
@@ -87,8 +89,8 @@ export class Texture3D {
  */
 const materialCache = new Map();
 export function getMaterial({ map = null, colorKey = false, blend = BLEND_NORMAL, alpha = 1,
-  vertexColors = false, doubleSide = true, color = 0xffffff }) {
-  const key = `${map ? map.id : 0}|${colorKey ? 1 : 0}|${blend}|${alpha.toFixed(3)}|${vertexColors ? 1 : 0}|${doubleSide ? 1 : 0}|${color}`;
+  vertexColors = false, doubleSide = true, color = 0xffffff, figure = false }) {
+  const key = `${map ? map.id : 0}|${colorKey ? 1 : 0}|${blend}|${alpha.toFixed(3)}|${vertexColors ? 1 : 0}|${doubleSide ? 1 : 0}|${color}|${figure ? 1 : 0}`;
   let m = materialCache.get(key);
   if (!m) {
     const blended = blend !== BLEND_NORMAL;
@@ -103,10 +105,32 @@ export function getMaterial({ map = null, colorKey = false, blend = BLEND_NORMAL
       blending: blend === BLEND_ADD ? THREE.AdditiveBlending : THREE.NormalBlending,
       depthWrite: !blended,
     });
+    // figures: pose blending always, optional lighting / cel shading on opaque surfaces
+    if (figure) makeLit(m, { light: blend === BLEND_NORMAL, character: true, tween: true });
     materialCache.set(key, m);
   }
   return m;
 }
+
+/** Black shell drawn around an opaque figure mesh for the cel-shading outline (lighting.js). */
+const outlineCache = new Map();
+export function getOutlineMaterial({ map = null, colorKey = false }) {
+  const key = `${map ? map.id : 0}|${colorKey ? 1 : 0}`;
+  let m = outlineCache.get(key);
+  if (!m) {
+    m = makeOutline(new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      map: colorKey ? map : null, // only the texture's cut-out matters
+      alphaTest: colorKey ? 0.5 : 0,
+      side: THREE.DoubleSide,
+    }), { tween: true });
+    outlineCache.set(key, m);
+  }
+  return m;
+}
+
+/** Counts presented frames; drawing instances use it to tell whether they were drawn last frame. */
+export const frameClock = { frame: 0 };
 
 /** Immediate-mode geometry whose arrays the game rewrites freely between draws. */
 export class Primitive3D {
@@ -251,14 +275,26 @@ export class G3D {
     if (!built) return;
     const matrix = new THREE.Matrix4();
     if (m) setMatrix(matrix, m);
-    for (const mesh of Array.isArray(built) ? built : [built]) {
-      // a built node may carry its own local transform (groups)
-      if (mesh.userData.local) mesh.matrix.multiplyMatrices(matrix, mesh.userData.local);
-      else mesh.matrix.copy(matrix);
-      mesh.matrixWorld.copy(mesh.matrix);
-      this.queue.push(mesh);
-    }
     this.touched.add(obj);
+    if (obj.type === TYPE.FIGURE && obj.model.numBones >= 2) {
+      const b = obj.model.bounds;
+      shadows.add(matrix, { min: b.min.map((v) => v * FIGURE_SCALE), max: b.max.map((v) => v * FIGURE_SCALE) });
+    }
+    if (built.legends2Part) {
+      // a player part the Legends 2 replacement may take over; resolved at flush
+      legends2.add(built.legends2Part, matrix);
+      this.pendingParts = true;
+      return;
+    }
+    for (const mesh of Array.isArray(built) ? built : [built]) this.#enqueue(mesh, matrix);
+  }
+
+  #enqueue(mesh, matrix) {
+    // a built node may carry its own local transform (groups, figures)
+    if (mesh.userData.local) mesh.matrix.multiplyMatrices(matrix, mesh.userData.local);
+    else mesh.matrix.copy(matrix);
+    mesh.matrixWorld.copy(mesh.matrix);
+    this.queue.push(mesh);
   }
 
   /** Full-screen 3D fills the whole (possibly wide) canvas; inset views keep the 240 square. */
@@ -267,11 +303,15 @@ export class G3D {
     return this.screen.xoff > 0 && x <= 0 && y <= 0 && w >= 240 && h >= 240;
   }
 
-  /** @param {number} aspect width / height of the viewport being rendered into */
-  #updateProjection(aspect) {
+  /**
+   * Set up the camera for a batch.
+   * @param {object} p              the batch's projection (see the setters above)
+   * @param {THREE.Matrix4} view    world -> view
+   * @param {number} aspect         width / height of the viewport being rendered into
+   */
+  #updateCamera(p, view, aspect) {
     // The projection always spans the whole surface; setClipRectFor3D only scissors. Verified
     // against the phone engine (micro3d_d4.dll), where the surface is 240x240 (aspect 1).
-    const p = this.projection;
     const e = this.camera.projectionMatrix.elements;
     e.fill(0);
     if (p.kind === 'parallel') {
@@ -297,45 +337,167 @@ export class G3D {
       e[14] = (-2 * far * near) / (far - near);
     }
     this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
-    this.camera.matrixWorldInverse.copy(this.view);
-    this.camera.matrixWorld.copy(this.view).invert();
+    this.camera.matrixWorldInverse.copy(view);
+    this.camera.matrixWorld.copy(view).invert();
   }
 
+  /**
+   * End the batch of objects queued so far: it becomes a step of the frame being recorded
+   * (screen.js), drawn when the frame is presented.
+   */
   flush() {
+    if (this.pendingParts) {
+      this.pendingParts = false;
+      const { nodes, meshes } = legends2.finish();
+      for (const { mesh, matrix } of meshes) this.#enqueue(mesh, matrix);
+      for (const node of nodes) this.queue.push(node); // already posed, world matrices set
+    }
     if (this.queue.length === 0) return;
+    for (const mesh of shadows.finish(this.queue)) this.queue.push(mesh);
     const screen = this.screen;
     const wide = this.#isWide();
     screen.flush2D(wide);
+    if (wide) screen.wide3D = true;
+    const frame = frameClock.frame;
+    const objects = this.queue;
+    const matrices = [];
+    const before = []; // where each object was in the previous frame, if it moved
+    for (const obj of objects) {
+      const u = obj.userData;
+      const now = obj.matrixWorld.clone();
+      if (u.seen !== frame) {
+        u.before = u.seen === frame - 1 ? u.latest : null;
+        u.seen = frame;
+      }
+      u.latest = now;
+      matrices.push(now);
+      before.push(u.before && !u.before.equals(now) && !jumped(u.before, now) ? u.before : null);
+    }
+    screen.record3D({
+      wide,
+      clip: [...this.clip],
+      projection: this.projection,
+      view: this.view.clone(),
+      viewBefore: null, // set by link()
+      objects,
+      matrices,
+      before,
+    });
+    this.queue = [];
+  }
+
+  /** The frame has been presented: drawing instances can be reused for the next one. */
+  endFrame() {
+    frameClock.frame++;
+    for (const obj of this.touched) obj.used = 0;
+    this.touched.clear();
+    legends2.endFlush();
+    shadows.endFrame();
+  }
+
+  /**
+   * Pair the 3D batches of two consecutive frames for interpolation.
+   * @returns {boolean} true when the newer frame can be shown moving on from the older one:
+   *   both have the same batches, at least one of them full-screen, and the camera did not cut
+   */
+  link(olderSteps, newerSteps) {
+    const older = olderSteps.filter((s) => !s.layer);
+    const newer = newerSteps.filter((s) => !s.layer);
+    if (newer.length === 0 || older.length !== newer.length) return false;
+    let full = false;
+    for (let i = 0; i < newer.length; i++) {
+      const a = older[i];
+      const b = newer[i];
+      if (a.projection.kind !== b.projection.kind || a.clip.join() !== b.clip.join()) return false;
+      if (cameraCut(a.view, b.view)) return false;
+      b.viewBefore = a.view.equals(b.view) ? null : a.view;
+      const [x, y, w, h] = b.clip;
+      if (x <= 0 && y <= 0 && w >= 240 && h >= 240) full = true;
+    }
+    return full;
+  }
+
+  /** Draw a recorded batch; `t` (0..1) is how far it has moved on from the previous frame. */
+  draw(step, t) {
+    const screen = this.screen;
     const r = screen.renderer;
     const k = screen.scale;
-    const [x, y, w, h] = this.clip;
-    if (wide) {
+    const [x, y, w, h] = step.clip;
+    if (step.wide) {
       // widescreen: same vertical field of view, more to see at the sides
       r.setViewport(0, 0, screen.viewWidth * k, 240 * k);
       r.setScissor(0, 0, screen.viewWidth * k, 240 * k);
-      screen.wide3D = true;
     } else {
       r.setViewport(screen.xoff * k, 0, 240 * k, 240 * k);
       r.setScissor((screen.xoff + x) * k, (240 - y - h) * k, w * k, h * k);
     }
     r.setScissorTest(true);
     r.clearDepth();
-    this.#updateProjection(wide ? screen.aspect : 1);
+    const moving = t < 1;
+    const view = moving && step.viewBefore ? mixView(step.viewBefore, step.view, t) : step.view;
+    updateDraw(view, moving ? t : 1, step.wide ? screen.viewWidth : 240, 240);
+    this.#updateCamera(step.projection, view, step.wide ? screen.aspect : 1);
     this.scene.children.length = 0;
-    let order = 0;
-    for (const mesh of this.queue) {
-      mesh.renderOrder = order++;
-      mesh.parent = this.scene;
-      this.scene.children.push(mesh);
+    const { objects, matrices, before } = step;
+    for (let i = 0; i < objects.length; i++) {
+      const obj = objects[i];
+      obj.matrix.copy(moving && before[i] ? mixMatrix(before[i], matrices[i], t) : matrices[i]);
+      obj.matrixWorld.copy(obj.matrix);
+      for (const child of obj.children) child.updateMatrixWorld(true); // Legends 2 models
+      obj.renderOrder = i;
+      obj.parent = this.scene;
+      this.scene.children.push(obj);
     }
     r.render(this.scene, this.camera);
     r.setScissorTest(false);
-    for (const mesh of this.queue) mesh.parent = null;
+    for (const obj of objects) obj.parent = null;
     this.scene.children.length = 0;
-    this.queue.length = 0;
-    for (const obj of this.touched) obj.used = 0;
-    this.touched.clear();
   }
+}
+
+// ---- interpolation between game frames ("smooth motion") ---------------------------------------
+
+const _p0 = new THREE.Vector3();
+const _p1 = new THREE.Vector3();
+const _s0 = new THREE.Vector3();
+const _s1 = new THREE.Vector3();
+const _q0 = new THREE.Quaternion();
+const _q1 = new THREE.Quaternion();
+const _mix = new THREE.Matrix4();
+const _c0 = new THREE.Matrix4();
+const _c1 = new THREE.Matrix4();
+
+/** An object that moved this far in one frame was teleported: do not slide it across. */
+const JUMP_DISTANCE = 6;
+/** A camera that moved or turned this much in one frame was cut to a new shot. */
+const CUT_DISTANCE = 10;
+const CUT_ANGLE = (50 * Math.PI) / 180;
+
+function jumped(a, b) {
+  const ea = a.elements;
+  const eb = b.elements;
+  return Math.hypot(eb[12] - ea[12], eb[13] - ea[13], eb[14] - ea[14]) > JUMP_DISTANCE;
+}
+
+/** Model matrix part of the way from `a` to `b` (returns a shared scratch matrix). */
+function mixMatrix(a, b, t) {
+  a.decompose(_p0, _q0, _s0);
+  b.decompose(_p1, _q1, _s1);
+  return _mix.compose(_p0.lerp(_p1, t), _q0.slerp(_q1, t), _s0.lerp(_s1, t));
+}
+
+/** View matrix part of the way between two views: the camera itself is moved and turned. */
+function mixView(a, b, t) {
+  _c0.copy(a).invert().decompose(_p0, _q0, _s0);
+  _c1.copy(b).invert().decompose(_p1, _q1, _s1);
+  return _c0.compose(_p0.lerp(_p1, t), _q0.slerp(_q1, t), _s0.lerp(_s1, t)).invert();
+}
+
+function cameraCut(a, b) {
+  if (a.equals(b)) return false;
+  _c0.copy(a).invert().decompose(_p0, _q0, _s0);
+  _c1.copy(b).invert().decompose(_p1, _q1, _s1);
+  return _p0.distanceTo(_p1) > CUT_DISTANCE || _q0.angleTo(_q1) > CUT_ANGLE;
 }
 
 // ---- factory used by the game through rdash.Host ------------------------------------------------

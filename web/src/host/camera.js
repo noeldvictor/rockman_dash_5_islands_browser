@@ -15,6 +15,12 @@ export class FreeCamera {
   playerYaw = 0;
   /** While true the camera keeps its world heading when the player turns. */
   holdWorld = false;
+  /**
+   * Direct stick movement (read by Mods.java): the world heading the left stick points at, NaN
+   * when not in use, and the walking speed as a fraction of the game's.
+   */
+  analogHeading = NaN;
+  analogSpeed = 1;
   #world = 0;
   #lastReport = -1e9;
   #changed = false;

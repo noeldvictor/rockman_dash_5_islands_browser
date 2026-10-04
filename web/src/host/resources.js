@@ -203,6 +203,41 @@ export class Resources {
     return f ? i8(f) : null;
   }
 
+  /**
+   * Every distinct copy of a game data file, wherever it lives: the jar, the scratchpad's data
+   * zip, or the island zips on the SD card. Used to recognise the game's own models by content.
+   * @returns {Uint8Array[]}
+   */
+  findAll(name) {
+    const out = [];
+    const add = (b) => { if (b && !out.some((x) => x.length === b.length && x.every((v, i) => v === b[i]))) out.push(b); };
+    add(this.jar[name]);
+    const zips = [];
+    const seg = this.segments[0];
+    if (seg && seg[4] === 0x50 && seg[5] === 0x4b) {
+      zips.push(seg.subarray(4, 4 + new DataView(seg.buffer, seg.byteOffset).getInt32(0, true)));
+    }
+    for (let island = 0; island < 5; island++) {
+      const count = this.shipped.get(`rddata${island}.bin`)?.[0] ?? 0;
+      const parts = [];
+      for (let c = 0; c < count; c++) parts.push(this.shipped.get(`rddata${island}${c}.bin`));
+      if (parts.length && parts.every(Boolean)) {
+        const blob = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+        let o = 0;
+        for (const part of parts) { blob.set(part, o); o += part.length; }
+        zips.push(blob);
+      }
+    }
+    for (const z of zips) {
+      try {
+        add(unzipSync(z, { filter: (f) => f.name === name })[name]);
+      } catch {
+        // not a zip (e.g. an island not downloaded yet)
+      }
+    }
+    return out;
+  }
+
   /** Forget persisted scratchpad/SD changes (next load starts from the shipped data). */
   async reset() {
     if (!this.db) return;

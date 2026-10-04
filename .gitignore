@@ -16,3 +16,6 @@
 
 __pycache__/
 *.pyc
+
+# Mega Man Legends 2 assets installed for the host (derived from the disc image)
+/web/public/mml2/

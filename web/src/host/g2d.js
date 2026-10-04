@@ -72,6 +72,7 @@ export class G2D {
     this.ox = 0;
     this.oy = 0;
     this.clip = null;
+    this.wide = false;
     this.color = '#000';
     this.fontPx = 24;
     this.fontCss = `24px ${FONT_FAMILY}`;
@@ -100,7 +101,10 @@ export class G2D {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     let clip = this.clip;
-    if (this.screen) {
+    if (this.wide) {
+      // the HUD may reach into the widescreen margins
+      clip = [-this.left, 0, 240 + 2 * this.left, 240];
+    } else if (this.screen) {
       // the display surface may be wider than the phone's screen (widescreen): never let the
       // game's 2D drawing spill outside its own 240x240 area
       if (!clip) clip = [0, 0, 240, 240];
@@ -119,18 +123,15 @@ export class G2D {
     }
   }
 
-  #touch() {
-    if (this.screen) this.screen.dirty2D = true;
+  /** Display surface only: let drawing reach the whole (wide) surface, ignoring the game's clip. */
+  setWide(on) {
+    if (this.wide === on) return;
+    this.wide = on;
+    this.#applyClip();
   }
 
-  /** Erase the whole surface to transparent, ignoring the clip. */
-  clearSurface() {
-    const ctx = this.ctx;
-    ctx.restore(); // back to the unclipped base state
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    this.#applyClip();
+  #touch() {
+    if (this.screen) this.screen.dirty2D = true;
   }
 
   lock() {

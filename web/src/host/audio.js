@@ -29,6 +29,8 @@ const AUDIO_COMPLETE = 3;
 const ATTR_SET_VOLUME = 4;
 /** An effect requested while audio was still starting up is played late rather than dropped. */
 const LATE_START_MS = 250;
+/** Sounds longer than this (or looping) count as music for the volume sliders. */
+const MUSIC_SECONDS = 6;
 
 /** SET_VOLUME percent -> gain. GM-style square law (assumption; the phone's table is unknown). */
 const volumeGain = (percent) => {
@@ -55,6 +57,8 @@ export class Audio {
   #generation = 0;
   #master = 1;
   #muted = false;
+  #musicVolume = 1;
+  #effectsVolume = 1;
   #peak = 0;
   #counters = { played: 0, audible: 0, completed: 0, stopped: 0 };
 
@@ -148,7 +152,7 @@ export class Audio {
     p.attrs[attr] = value;
     if (attr === ATTR_SET_VOLUME) {
       p.volume = Math.min(100, Math.max(0, value));
-      if (p.inEngine && this.#engine) this.#engine.post({ type: 'volume', port, value: volumeGain(p.volume) });
+      if (p.inEngine && this.#engine) this.#engine.post({ type: 'volume', port, value: this.#portGain(p) });
     }
     // PRIORITY, SYNC_MODE, TRANSPOSE_KEY, CHANGE_TEMPO, LOOP_COUNT: stored, not implemented
     // (this game never sets them).
@@ -173,6 +177,28 @@ export class Audio {
 
   get masterVolume() {
     return this.#master;
+  }
+
+  /**
+   * Separate levels for music and sound effects (slider positions 0..1, applied as a square
+   * law). Music is anything that loops or runs longer than MUSIC_SECONDS; the rest are effects.
+   */
+  setCategoryVolumes(music, effects) {
+    const clamp = (v) => Math.min(1, Math.max(0, Number(v) || 0));
+    this.#musicVolume = clamp(music);
+    this.#effectsVolume = clamp(effects);
+    if (!this.#engine) return;
+    for (const [port, p] of this.ports) {
+      if (p.inEngine) this.#engine.post({ type: 'volume', port, value: this.#portGain(p) });
+    }
+  }
+
+  /** Gain of a port: the game's own volume times the user's level for that kind of sound. */
+  #portGain(p) {
+    const s = p.sound;
+    const music = !!s && (s.loops || s.duration > MUSIC_SECONDS);
+    const user = music ? this.#musicVolume : this.#effectsVolume;
+    return volumeGain(p.volume) * user * user;
   }
 
   /** Try to start audio now (call from a click handler of the page, e.g. an "enable sound" button). */
@@ -233,7 +259,7 @@ export class Audio {
       engine.post({ type: 'load', key: sound.key, song: sound.song });
       engine.loaded.add(sound.key);
     }
-    engine.post({ type: 'play', port, key: sound.key, gen: p.gen, volume: volumeGain(p.volume) });
+    engine.post({ type: 'play', port, key: sound.key, gen: p.gen, volume: this.#portGain(p) });
     p.inEngine = true;
     this.#counters.audible++;
   }

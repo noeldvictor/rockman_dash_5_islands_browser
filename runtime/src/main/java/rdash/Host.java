@@ -74,6 +74,17 @@ public final class Host {
     @JSBody(script = "return globalThis.DOJA.gfx.aspect();")
     public static native float aspect();
 
+    /**
+     * Start drawing the mission HUD. Returns how far (in phone pixels) the side gauges may move
+     * outwards: the width of the widescreen margin, 0 on the phone's square screen. Until
+     * {@link #hudEnd} 2D drawing may reach into the margins.
+     */
+    @JSBody(script = "return globalThis.DOJA.gfx.hudBegin();")
+    public static native int hudBegin();
+
+    @JSBody(script = "globalThis.DOJA.gfx.hudEnd();")
+    public static native void hudEnd();
+
     /** Free-look offsets in degrees, relative to the game's own follow camera. */
     @JSBody(script = "return globalThis.DOJA.camera.yaw;")
     public static native float cameraYaw();
@@ -88,6 +99,17 @@ public final class Host {
     /** True once after the free-look offsets changed. */
     @JSBody(script = "return globalThis.DOJA.camera.consumeChanged();")
     public static native boolean cameraChanged();
+
+    /**
+     * Direct stick movement: the world heading (degrees, same convention as the player heading
+     * passed to cameraReport) the stick points at, or NaN when it is not in use.
+     */
+    @JSBody(script = "return globalThis.DOJA.camera.analogHeading;")
+    public static native float analogHeading();
+
+    /** Direct stick movement: walking speed as a fraction of the game's (1 when not in use). */
+    @JSBody(script = "return globalThis.DOJA.camera.analogSpeed;")
+    public static native float analogSpeed();
 
     /** Bit set of Mods.* cheat flags; one-shot flags are cleared by the host when read. */
     @JSBody(script = "return globalThis.DOJA.cheats.flags();")

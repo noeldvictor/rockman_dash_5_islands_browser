@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { parseD4D, d4dTextureTranslationAt } from '../formats/d4d.js';
 import { TYPE } from './g3d.js';
 import { MODEL_FLIP } from './conventions.js';
+import { registerTexture } from './texfilter.js';
+import { makeLit } from './lighting.js';
 
 function imageTexture(image, opaque) {
   const { width, height, palette, pixels, bytesPerPixel, isPaletted } = image;
@@ -27,13 +29,10 @@ function imageTexture(image, opaque) {
   }
   const t = new THREE.DataTexture(rgba, width, height, THREE.RGBAFormat);
   t.colorSpace = THREE.NoColorSpace;
-  t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestFilter;
   t.wrapS = THREE.RepeatWrapping;
   t.wrapT = THREE.RepeatWrapping;
   t.flipY = false; // M3G texture space: t = 0 is the top row
-  t.needsUpdate = true;
-  return t;
+  return registerTexture(t);
 }
 
 class Group3D {
@@ -95,8 +94,10 @@ class Group3D {
           polygonOffsetUnits: m.depthOffsetUnits,
         });
         if (!color) material.color.setRGB(mesh.defaultColor[0] / 255, mesh.defaultColor[1] / 255, mesh.defaultColor[2] / 255);
+        if (!m.transparent) makeLit(material);
         this.disposables.push(material);
         const node = new THREE.Mesh(g, material);
+        node.userData.ground = true; // shadows are cast onto map geometry
         node.frustumCulled = false;
         node.matrixAutoUpdate = false;
         node.userData.local = local;
