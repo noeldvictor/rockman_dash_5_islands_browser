@@ -240,8 +240,10 @@ yet. Known rough edges:
 - The music is played with General MIDI instruments (sampled if you have the SoundFont,
   synthesised otherwise), not the phone's own sound source, so it does not sound like the phone.
 - Above 15 fps, the 2D layer (HUD, dialogue) still updates 15 times a second.
-- The Android app was run in an emulator (it installs, plays and has sound), not yet on a real
-  handheld; its built-in controller support is untested.
+- The Android app has been run on a Retroid Pocket 3+ (full speed, built-in controller
+  detected) and in an emulator. Devices with an old built-in web engine, the Pocket 3+
+  included, need "Android System WebView" updated from the Play Store first; the easy setup
+  guide says how. Other handhelds are untested.
 - Most options were checked with screenshots and automated runs rather than long play sessions.
   Touch controls and mouse capture have only been tried with simulated input, not on real
   devices, and nobody has yet judged the music by ear.

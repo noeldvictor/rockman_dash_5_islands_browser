@@ -165,6 +165,8 @@ async function start(variant) {
   screen.edgeHud = !document.body.classList.contains('touch');
   const audio = new Audio();
   settings.bind('muted', (v) => audio.setMuted(v));
+  // the Android app may play without a tap first; with only a controller there never is one
+  if (params.has('app')) audio.unlock(true);
   const applyVolumes = () => audio.setCategoryVolumes(settings.get('musicVolume'), settings.get('effectsVolume'));
   applyVolumes();
   settings.bind('instruments', (v) => audio.setSampled(v === 'sampled'));

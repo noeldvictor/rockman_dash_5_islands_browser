@@ -239,9 +239,13 @@ export class Audio {
     if (this.#soundfont) this.#engine.post({ type: 'soundfont', ...this.#soundfont });
   }
 
-  /** Try to start audio now (call from a click handler of the page, e.g. an "enable sound" button). */
-  unlock() {
-    this.#ensureContext(true);
+  /**
+   * Try to start audio now (call from a click handler of the page, e.g. an "enable sound" button).
+   * `force` skips the "has the user interacted with the page" check: for the Android app, where
+   * playback needs no gesture and a controller's buttons never count as one.
+   */
+  unlock(force = false) {
+    this.#ensureContext(true, force);
   }
 
   /** State for the page UI / tests. `peak` is the output peak since the previous call. */
@@ -327,13 +331,13 @@ export class Audio {
     this.#engine.post({ type: 'master', value: this.#muted ? 0 : this.#master * this.#master });
   }
 
-  #ensureContext(fromGesture) {
+  #ensureContext(fromGesture, force = false) {
     if (typeof window === 'undefined') return;
     if (!this.#ctx) {
       // creating a context before the page has been activated only earns a console warning
       // (not every key counts: a lone modifier key does not activate the page)
       const activation = navigator.userActivation;
-      if (activation ? !activation.hasBeenActive : !fromGesture) return;
+      if (!force && (activation ? !activation.hasBeenActive : !fromGesture)) return;
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       try {

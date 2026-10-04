@@ -110,6 +110,11 @@ Android 8 or newer.
 `--small` leaves out the recorded music instruments (6 MB); `--full` adds the AI textures and
 Legends 2 models if you have them (about 100 MB).
 
+If the app stays on the "Choose which English names to use" screen and tapping does nothing,
+the device's built-in web engine is too old (the Retroid Pocket 3+ ships with one from 2020).
+Install **Android System WebView** from the Play Store, then pick it under Settings > System >
+Developer options > WebView implementation, and reopen the app.
+
 The script needs the Android SDK. If you have Android Studio installed it is found
 automatically; if not, the script offers to download the two parts it needs (about 300 MB).
 As with the single file: the app contains your game files, so keep it to yourself.
