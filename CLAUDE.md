@@ -71,6 +71,7 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 | `runtime/` | Maven project: DoJa API reimplementation + TeaVM build (`./mvnw`, JDK 11+) |
 | `web/` | Vite app. `src/host/` = host services, `src/formats/` = file-format parsers (no three.js imports), `src/mods/` = optional asset replacement |
 | `tools/build.sh` | Patch + recompile both variants and copy data into `web/public/` |
+| `.claude/skills/rendered-docs/` | Skill: fetch web pages that need JavaScript to render (the Tripo API docs) as text with Playwright Chromium from `.venv/` (git-ignored; set-up in its `SKILL.md`). Output in `build/docs/<host>/` |
 | `tools/state_roots.py`, `tools/states/verify.mjs` | Save states: generator of `StateRoots.java` (the game's static fields, from the patched jar) and a self-check of the host-side copy |
 | `tools/patch_jar.py` | Build-time jar patch: `Thread.sleep` -> `rdash.GameHooks.sleep`, three calls -> `Mods.hud`/`sky`/`walk`, public fields, dropped overridden classes |
 | `tools/extract_assets.py` | Unpack jar / scratchpad / SD data into `build/assets/` for inspection |
@@ -130,6 +131,28 @@ on its own. To read the game's logic, decompile the jar with CFR (`java -jar cfr
 original/localized/RockmanDASH.jar --outputdir build/decomp`); class and method names are
 obfuscated (`a`…`bt`).
 
+## AI model remake (planned, nothing generated yet)
+
+The user wants the game's 67 models remade with Tripo (tripo3d.ai). Decided so far, 2026-10-05:
+
+- Scope: everything, in the order props and objects, enemies and bosses, main characters; a
+  test batch of three (a prop, an enemy, a character) first, shown to the user before going on.
+- Pictures: Tripo builds what it is shown, and a render of a 700-triangle phone model is not
+  enough. So each phone model is rendered, redrawn as clean HD art by an image model, and that
+  picture goes to image-to-3D. Tripo's own API has the image models (`seedream_v5`, `banana*`,
+  `chat_image_*` under `/generation/image-to-image`), so no second service is needed.
+- Look: "Legends 3 prototype": smooth cel-shaded anime shapes, roughly 5-10 thousand
+  triangles, crisp flat-colour textures.
+- Faces of the characters (the phone game changes expression): to be decided after the test.
+- API: base `https://openapi.tripo3d.ai/v3`, `Authorization: Bearer <key>`, asynchronous tasks
+  polled through the task query endpoint. The key is in `build/ai/tripo.key` (git-ignored) or
+  `$TRIPO_API_KEY`; it must never reach a tracked file. Docs are fetched with the
+  `rendered-docs` skill into `build/docs/developers.tripo3d.ai/`. Prices (1 credit = $0.01):
+  image 5-15, image-to-3D with texture 30 (+10 smart low-poly, +10 HD texture), auto-rig 25,
+  retarget 10 per animation; the account had 4,805 credits.
+- Generated models are derived from the game's designs: like the AI texture pack they are made
+  locally by a script and never committed.
+
 ## Game data
 
 - **Jar** (`resource:///name`): classes, UI art (GIF), character models, scripts (`.rde` events,
@@ -169,16 +192,22 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   brought to the standard layout by `standardPad`: a pad the browser reports with an empty
   `mapping` and six or more axes is read in the Linux driver (evdev) order — left stick, left
   trigger, right stick, right trigger, d-pad hat on axes; A, B, X, Y, LB, RB, Back, Start, Guide,
-  L3, R3 on buttons — otherwise its right stick would be read from a trigger axis. Defaults: A jump+confirm (a button
-  bound to both jumps during play and confirms elsewhere: during play the game fires the buster
-  on its Select key as well as on the buster key, mask `0x100000 | g[1]` in `av`. It also confirms
-  during play while the frame has text on it — a message or prompt, `Screen.onText` — or while
-  Select would open or press something in reach, `Mods.canInteract` → `camera.interact`. The
-  role is picked when the button goes down, and a confirm is let go as soon as play resumes), X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
+  L3, R3 on buttons — otherwise its right stick would be read from a trigger axis. Defaults: A jump+confirm,
+  X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
   Select/Start soft keys, R3 re-centre camera, L3 fast-forward, L3+R3 settings menu, left
   stick = d-pad. Keyboard and
   controller bindings are per action (`ACTIONS` in `input.js`) and user-editable. The phone
   vibrator (`PhoneSystem` attribute 1) drives rumble.
+- The game's Select key confirms, talks, opens and presses, and during play it also fires the
+  buster (mask `0x100000 | g[1]` in `av`: a new press first calls `k.d()`, which starts the
+  events in reach, and shoots if there were none; held, it keeps shooting — the game auto-fires
+  on its own). The port separates the two at the input layer (`Input.#syncSelect`): while
+  "playing" a held Select is not passed to the game, whatever it comes from (keyboard,
+  controller, touch), so confirming never shoots; the buster key keeps both roles. "Playing"
+  (`Input.#playing`) = the follow camera is reporting, the frame has no text on it
+  (`Screen.onText`: a message or prompt) and nothing Select would act on is in reach
+  (`Mods.canInteract` -> `camera.interact`). A controller button bound to both jump and confirm
+  uses the same test, decided when it goes down: jump while playing, confirm otherwise.
 - Key state is a bit mask by key code: 0–9 digits, 10 `*`, 11 `#`, 16 left, 17 up, 18 right,
   19 down, 20 select, 21/22 soft keys. Default bindings (Options > Controls): jump 0, buster 9,
   special weapon 6, lock-on 3.
@@ -298,7 +327,12 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   (`loadFromPack`), keeping the game's own alpha, enlarged; until it arrives the HD version shows.
   The textures embedded in the installed Legends 2 models are in the pack too, listed by model
   name and image index; `legends2.js` registers each with that name and the picture is swapped
-  whole (`loadNamed`). Field of view (`G3D.fovScale` scales the angle of the mission's full-screen
+  whole (`loadNamed`). Draw distance (1x to 4x, `G3D.drawDistance`): the mission draws
+  its map whole, out to the projection's far plane (300 units), but culls enemies and objects
+  itself against the camera's own far plane, 60 or 75 units away (`bp` sets it; the flag `aD`
+  it computes is only read by the draw methods, so nothing in the game's logic changes). The
+  option multiplies both: `ax.java` moves its far plane out (`Host.drawDistance`) and
+  `G3D.#projection` the mission projection's. Field of view (`G3D.fovScale` scales the angle of the mission's full-screen
   perspective view, recognised by its planes, near 1 and far 300, which only `bp` sets;
   `ax.java` widens its culling frustum to match through `Host.fov`. Cutscenes and menus keep
   the game's 60 degrees: they stand characters over 2D pictures and leave unused models parked
@@ -436,8 +470,8 @@ Keep this section current.
   sensitivity, inversion, distance and mouse capture; direct movement from the stick or the
   keys; controller support with rumble, rebindable controls, a controller-driven settings menu;
   touch stick, buttons and swipe-look; fast-forward; sampled music instruments and separate
-  music/effects volume; save export/import; save states; cheats; fast loading; Legends 2
-  character models.
+  music/effects volume; save export/import; save states; cheats; fast loading; draw distance;
+  confirming that never fires the buster; Legends 2 character models with expressions.
 - Working: recompilation of both variants, boot, title/menus, save loading from the dumped
   scratchpad, SD-card island data, 2D UI and dialogue, 3D maps, character models and animation,
   effects, collision, keyboard/gamepad/touch input, save persistence (IndexedDB), the game-server

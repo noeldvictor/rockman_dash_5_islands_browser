@@ -174,6 +174,7 @@ export class Input {
   #menuHeld = new Map(); // command -> time of its next repeat
   /** the game's last frame had text on it (set by Screen) */
   textShown = false;
+  #selectSent = false; // whether the game currently sees its Select key down (see #syncSelect)
   #padRole = new Map(); // held button bound to both jump and confirm -> which one it is this press
   #combo = false; // the menu combo is being held
   #padWait = false; // ignore controller buttons until they have all been released
@@ -345,6 +346,10 @@ export class Input {
     if (!held) this.#sources.set(key, (held = new Set()));
     const was = held.size > 0;
     held.add(source);
+    if (key === KEY.SELECT) {
+      this.#syncSelect();
+      return;
+    }
     if (was) return;
     this.#state |= 1 << key;
     this.handler?.(0, key);
@@ -353,14 +358,48 @@ export class Input {
   release(key, source = 'api') {
     const held = this.#sources.get(key);
     if (!held || !held.delete(source) || held.size > 0) return;
+    if (key === KEY.SELECT) {
+      this.#syncSelect();
+      return;
+    }
     this.#state &= ~(1 << key);
     this.handler?.(1, key);
+  }
+
+  /**
+   * "Playing": the player is free to run, jump and shoot. Not while the game shows a message
+   * or prompt (text on screen), nor while something its Select key would open, press or
+   * continue is in reach (camera.interact, from Mods.canInteract).
+   */
+  #playing() {
+    const cam = this.camera;
+    return !!cam && cam.following && !cam.interact && !this.textShown;
+  }
+
+  /**
+   * The game's Select key confirms, talks and opens, and during play it also fires the buster.
+   * Here it only does the first: while playing, a held Select is not passed on, so nothing a
+   * player confirms with (keyboard, controller, touch) shoots. The buster key still does both,
+   * as in the game. Called on every change and every display frame.
+   */
+  #syncSelect() {
+    const held = (this.#sources.get(KEY.SELECT)?.size ?? 0) > 0;
+    const want = held && !this.#playing();
+    if (want === this.#selectSent) return;
+    this.#selectSent = want;
+    if (want) this.#state |= 1 << KEY.SELECT;
+    else this.#state &= ~(1 << KEY.SELECT);
+    this.handler?.(want ? 0 : 1, KEY.SELECT);
   }
 
   releaseAll() {
     for (const [key, held] of this.#sources) {
       if (held.size === 0) continue;
       held.clear();
+      if (key === KEY.SELECT) {
+        this.#syncSelect();
+        continue;
+      }
       this.#state &= ~(1 << key);
       this.handler?.(1, key);
     }
@@ -396,9 +435,8 @@ export class Input {
     let analogHeading = NaN;
     let analogSpeed = 1;
     let anyButton = -1;
-    // "playing": free to jump. Not while the game shows a message or prompt (text on screen),
-    // nor while something its Select key would open or examine is in reach (cam.interact).
-    const playing = !!cam && cam.following && !cam.interact && !this.textShown;
+    this.#syncSelect();
+    const playing = this.#playing();
     const heldNow = new Set();
     for (const pad of pads) {
       if (!pad.virtual) name ??= pad.id;

@@ -112,6 +112,10 @@ public final class Host {
     @JSBody(params = {"gameFov"}, script = "return globalThis.DOJA.gfx.fov(gameFov);")
     public static native float fov(float gameFov);
 
+    /** Draw distance option: factor on the far plane the mission's camera culls against. */
+    @JSBody(script = "return globalThis.DOJA.gfx.drawDistance();")
+    public static native float drawDistance();
+
     /**
      * Direct stick movement: the world heading (degrees, same convention as the player heading
      * passed to cameraReport) the stick points at, or NaN when it is not in use.

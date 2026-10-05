@@ -82,6 +82,7 @@ async function start(variant) {
   setMaxAnisotropy(screen.renderer.capabilities.getMaxAnisotropy());
   settings.bind('textureFilter', setTextureFilter);
   settings.bind('fov', (v) => { screen.g3d.fovScale = v / 60; });
+  settings.bind('drawDistance', (v) => { screen.g3d.drawDistance = v; });
   settings.bind('frameRate', (v) => { screen.frameRate = v; });
   settings.bind('lighting', setLighting);
   settings.bind('celShading', setCelShading);
@@ -193,6 +194,7 @@ async function start(variant) {
       decodeImage: (data, len) => Img.decode(new Uint8Array(data.buffer, data.byteOffset, len)),
       aspect: () => screen.aspect,
       fov: (gameFov) => gameFov * screen.g3d.fovScale,
+      drawDistance: () => screen.g3d.drawDistance,
       hudBegin: () => screen.hudBegin(),
       hudEnd: () => screen.graphics.setWide(false),
     },

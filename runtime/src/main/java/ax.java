@@ -44,6 +44,7 @@ extends s {
     private int portFov;
     private float portAspect = 1.0f;
     private float portFovUsed;
+    private float portDrawUsed = 1.0f;
 
     public final void a(int n2, int n3, int n4) {
         this.portNear = n2;
@@ -51,6 +52,7 @@ extends s {
         this.portFov = n4;
         this.portAspect = Host.aspect();
         this.portFovUsed = Host.fov((float)n4); // port: field of view option
+        this.portDrawUsed = Host.drawDistance(); // port: draw distance option
         long l2 = 0L;
         l2 = this.portFovUsed == (float)n4
             ? (long)(Math.tan(0.017453292500000002 * (double)(n4 >> 1)) * 4096.0)
@@ -66,7 +68,7 @@ extends s {
         this.d[1][0] = 0L;
         this.d[1][1] = 0L;
         this.d[1][2] = -4096L;
-        this.d[1][3] = n3;
+        this.d[1][3] = (long)((float)n3 * this.portDrawUsed); // port: far plane moved out
         this.f.a(-portB, 0L, 4096L);
         this.f.a();
         this.d[2][0] = this.f.a;
@@ -95,8 +97,10 @@ extends s {
 
     public final void a() {
         if (this.portFov != 0 && (Host.aspect() != this.portAspect
-                || Host.fov((float)this.portFov) != this.portFovUsed)) {
-            this.a(this.portNear, this.portFar, this.portFov); // port: aspect ratio or FOV changed
+                || Host.fov((float)this.portFov) != this.portFovUsed
+                || Host.drawDistance() != this.portDrawUsed)) {
+            // port: aspect ratio, field of view or draw distance changed
+            this.a(this.portNear, this.portFar, this.portFov);
         }
         int n2 = 0;
         long l2 = 0L;

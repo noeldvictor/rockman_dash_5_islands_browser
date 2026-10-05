@@ -16,6 +16,8 @@ export const DEFAULTS = {
   textureFilter: 'sharp',
   /** vertical field of view of full-screen 3D, degrees; the game's own is 60 */
   fov: 60,
+  /** factor on how far away the mission draws enemies, objects (the game's is 1) and scenery */
+  drawDistance: 1,
   lighting: false,
   shadows: false,
   /**

@@ -3,6 +3,7 @@
 /runtime/target/
 /runtime/src/main/java/StateRoots.java
 /web/node_modules/
+/.venv/
 /web/dist/
 /web/public/game/
 /web/public/data/

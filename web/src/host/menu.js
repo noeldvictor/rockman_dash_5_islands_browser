@@ -210,6 +210,9 @@ export class SettingsMenu {
       ], this.available.texturePack ? 'AI upscaled uses the texture pack made on your image server'
         : 'Smooth and HD also use anisotropic filtering'),
       this.#slider('fov', 'Field of view', { min: 45, max: 100, step: 5, unit: '°', scale: 1 }),
+      this.#select('drawDistance', 'Draw distance', [
+        [1, 'Original'], [1.5, '1.5x'], [2, '2x'], [3, '3x'], [4, '4x'],
+      ], 'How far away enemies and objects appear during missions'),
       this.#select('frameRate', 'Frame rate', [
         [15, '15 fps (original)'], [30, '30 fps'], [60, '60 fps'], [0, 'Display rate'],
       ], 'Above 15, in-between pictures are interpolated; the game itself still steps 15 times a second'),

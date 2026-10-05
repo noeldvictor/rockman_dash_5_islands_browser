@@ -252,6 +252,12 @@ export class G3D {
     this.touched = new Set();
     /** Field of view option: factor on the angle of the mission's full-screen perspective view. */
     this.fovScale = 1;
+    /**
+     * Draw distance option: factor on the far plane of the mission's view. The game draws its
+     * map whole, out to that plane; enemies and objects it culls itself against the camera's
+     * own, nearer far plane, which ax.java moves out by the same factor (Host.drawDistance).
+     */
+    this.drawDistance = 1;
   }
 
   setClipRect(x, y, w, h) {
@@ -308,12 +314,13 @@ export class G3D {
   #projection() {
     const p = this.projection;
     const [x, y, w, h] = this.clip;
-    if (this.fovScale === 1 || p.kind !== 'perspective' || !(x <= 0 && y <= 0 && w >= 240 && h >= 240)) return p;
+    if ((this.fovScale === 1 && this.drawDistance === 1) || p.kind !== 'perspective'
+      || !(x <= 0 && y <= 0 && w >= 240 && h >= 240)) return p;
     // Only the mission's own view, which is the one projection the game sets up with these
     // planes (bp). Cutscenes and menus keep the framing they were made for: they park models
     // just outside it, and place characters over 2D pictures.
     if (p.near !== MISSION_NEAR || p.far !== MISSION_FAR) return p;
-    return { ...p, angle: Math.min(150, p.angle * this.fovScale) };
+    return { ...p, angle: Math.min(150, p.angle * this.fovScale), far: p.far * this.drawDistance };
   }
 
   /** Full-screen 3D fills the whole (possibly wide) canvas; inset views keep the 240 square. */

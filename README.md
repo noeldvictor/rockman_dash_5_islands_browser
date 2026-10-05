@@ -67,7 +67,10 @@ controller); none change the game's rules, and with everything off you get the p
   AI-upscaled texture pack you generate yourself (`tools/ai/textures.py`, needs a ComfyUI server);
   the pack covers the Legends 2 models' textures too.
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
-- **Field of view** and **camera distance** sliders.
+- **Field of view** and **camera distance** sliders, and a **draw distance** setting that makes
+  enemies and objects appear from up to four times further away.
+- **Confirming never shoots.** On the phone the OK key also fires the buster; here OK only
+  talks, opens and confirms, and the buster has its own button.
 
 **Controls**
 
