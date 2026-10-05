@@ -100,6 +100,11 @@ controller); none change the game's rules, and with everything off you get the p
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
   for the phone's, faces included: they change expression where the phone characters do
   (see [below](#optional-legends-2-character-models)).
+- **AI-remade models and textures (optional, work in progress)** — with your own Tripo API key,
+  scripts rebuild the game's props as modern low-poly models and redraw map textures in a clean
+  cel-shaded look (see [below](#optional-ai-remade-models-and-textures)).
+- **Roomier areas (experiment)** — stretches an area sideways so there is more room to move,
+  while everything in it keeps its size. One test area so far.
 - A small toolbar over the game in fullscreen, so settings and fast-forward stay in reach.
 - **Take it anywhere** — one script packs the game into a single HTML file, another into an
   Android app; both play offline.
@@ -238,6 +243,24 @@ character models and the port will pose them with the phone game's own animation
 Legends 2 face that best matches each of the phone game's expressions (matched by eye; the two
 games do not have the same set of faces). Nothing from that disc is in this repository either; the commands are in `CLAUDE.md` under "Commands". Without
 it the phone's own models are used, and everything else works the same.
+
+## Optional: AI-remade models and textures
+
+Work in progress, and off unless you make the files yourself. Nothing generated is in this
+repository: it is all derived from the game.
+
+- **Models.** `tools/ai/remake.py` renders a phone model from four sides, has an image model
+  redraw each picture as clean HD art, and has [Tripo](https://www.tripo3d.ai) build a textured
+  low-poly model from them. `tools/ai/install_remake.py` fits the result to the phone model's
+  size and facing. So far this covers props that do not bend (the car, cactus, vending machine,
+  bench, switch); enemies and characters still use the phone or Legends 2 models.
+- **Textures.** `tools/ai/restyle.py` redraws an area's wall and floor textures in the same
+  look and keeps them tileable. Pick "AI redrawn" under Settings > Video > Textures. One area
+  is done.
+
+Both need a Tripo API key (paid, about 10 credits per picture and 50 per model) in
+`$TRIPO_API_KEY`, and a Python environment with Playwright; `CLAUDE.md` has the details under
+"AI model remake".
 
 ## Status
 
