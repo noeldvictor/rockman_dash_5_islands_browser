@@ -160,6 +160,28 @@ export class Audio {
     // (this game never sets them).
   }
 
+  // ---- save states (savestate.js) ---------------------------------------------------------------
+
+  /** What each port holds and whether it is playing. */
+  snapshot() {
+    return [...this.ports].map(([port, p]) => ({ port, sound: p.sound, attrs: { ...p.attrs }, volume: p.volume, playing: p.playing }));
+  }
+
+  /**
+   * Put a snapshot() back. A sound that was playing starts again from its beginning: the game
+   * may be waiting for it to end, and music has to be the saved moment's.
+   */
+  restore(saved) {
+    for (const port of this.ports.keys()) this.stop(port);
+    for (const { port, sound, attrs, volume, playing } of saved) {
+      const p = this.#port(port);
+      p.sound = sound;
+      p.attrs = { ...attrs };
+      p.volume = volume;
+      if (playing) this.play(port);
+    }
+  }
+
   // ---- page side -------------------------------------------------------------------------------
 
   setMuted(muted) {

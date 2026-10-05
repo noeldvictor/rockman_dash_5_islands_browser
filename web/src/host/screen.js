@@ -52,6 +52,7 @@ export class Screen {
     /** the frame being drawn has text on it; reported through onText(shown) when presented */
     this.textDrawn = false;
     this.onText = null;
+    this.cutNext = false;
     this.scale = 0;
     this.frames = 0; // presented frames, for measuring the game's frame rate
     // Widescreen: the canvas is `viewWidth` logical pixels wide (>= 240). The game's 240-wide
@@ -208,12 +209,18 @@ export class Screen {
       const dt = now - previous.time;
       if (dt < MAX_INTERVAL) this.interval += (dt - this.interval) * 0.2;
       // interpolate only between two consecutive frames whose 3D belongs together
-      frame.interpolate = this.frameRate !== 15 && dt < MAX_INTERVAL
+      frame.interpolate = this.frameRate !== 15 && dt < MAX_INTERVAL && !this.cutNext
         && this.g3d.link(previous.steps, frame.steps);
       for (const step of previous.steps) if (step.layer) this.layers.push(step.layer);
     }
+    this.cutNext = false;
     this.shown = frame;
     if (!frame.interpolate) this.#replay(frame, 1);
+  }
+
+  /** The next frame does not follow on from the one shown (a save state was loaded). */
+  cut() {
+    this.cutNext = true;
   }
 
   /** Display-rate loop: shows the in-between pictures while a frame is being interpolated. */

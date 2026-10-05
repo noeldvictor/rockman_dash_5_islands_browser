@@ -13,12 +13,14 @@ variants=("$@")
 
 # Game classes we replace with modified decompiled sources: every default-package source file in
 # the runtime that is not one of our own classes.
-overrides=$(cd runtime/src/main/java && ls *.java | sed 's/\.java$//' | grep -vx -e Boot -e Mods | paste -sd, -)
+overrides=$(cd runtime/src/main/java && ls *.java | sed 's/\.java$//' | grep -vx -e Boot -e Mods -e StateRoots | paste -sd, -)
 
 for v in "${variants[@]}"; do
   echo "== recompiling $v"
   mkdir -p "build/patched/$v"
   python3 tools/patch_jar.py "original/$v/RockmanDASH.jar" "build/patched/$v/RockmanDASH.jar" --drop "$overrides"
+  # save states: hand the game's static fields to the host (generated, per variant)
+  python3 tools/state_roots.py "build/patched/$v/RockmanDASH.jar" runtime/src/main/java/StateRoots.java
   (cd runtime && ./mvnw -q -B package -Dvariant="$v")
   mkdir -p "web/public/data/$v"
   cp original/"$v"/RockmanDASH.{jar,jam,sp} "web/public/data/$v/"

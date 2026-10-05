@@ -1,6 +1,7 @@
 # generated
 /build/
 /runtime/target/
+/runtime/src/main/java/StateRoots.java
 /web/node_modules/
 /web/dist/
 /web/public/game/

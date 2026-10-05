@@ -90,6 +90,9 @@ controller); none change the game's rules, and with everything off you get the p
 
 - **Fast loading** — seconds instead of half a minute per area.
 - **Save export / import** — saves live in your browser; back them up or move them as a file.
+- **Save states** — Save and Load buttons (under the game, and in the toolbar on touch screens)
+  freeze the exact moment during a mission and bring it back, enemies and all. One state, kept
+  until you close the game.
 - **Cheats** — infinite life, infinite weapon energy, one-hit kills, max zenny, game speed.
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
   for the phone's (see [below](#optional-legends-2-character-models)).

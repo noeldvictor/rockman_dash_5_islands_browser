@@ -256,5 +256,37 @@ public final class Mods {
                 speedChanged = false;
             }
         }
+        saveStates(game);
+    }
+
+    private static final int STATE_SAVE = 1;
+    private static final int STATE_LOAD = 2;
+    /** Save states: the roots of the saved copy (the host holds the copy itself). */
+    private static Object[] savedRoots;
+
+    /**
+     * Save states. This runs at the one place the game presents a frame (ad.a(Graphics), called
+     * from the main loop in ad.run()), so the game thread is at the same point of the same loop
+     * for every save and every load, whatever screen is up: only the objects have to be put back.
+     * The host copies and restores them (savestate.js); the static fields, which it cannot
+     * reach, go through the generated StateRoots.
+     */
+    private static void saveStates(ad game) {
+        int request = Host.stateRequest();
+        if (request == STATE_SAVE) {
+            // only during a mission: other screens draw into pictures the copy does not cover
+            boolean mission = game.u != null && game.u.f == STATE_MISSION && game.w != null && game.w.d != null;
+            Object[] roots = mission ? StateRoots.capture(game) : null;
+            if (Host.stateSave(roots, mission)) {
+                savedRoots = roots;
+            }
+        } else if (request == STATE_LOAD && savedRoots != null && Host.stateLoad()) {
+            StateRoots.apply(savedRoots);
+            // the keys held now, not the ones held when the state was saved
+            game.r = game.getKeypadState();
+            game.c = game.r;
+            game.b = 0;
+            game.d = 0;
+        }
     }
 }

@@ -71,6 +71,7 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 | `runtime/` | Maven project: DoJa API reimplementation + TeaVM build (`./mvnw`, JDK 11+) |
 | `web/` | Vite app. `src/host/` = host services, `src/formats/` = file-format parsers (no three.js imports), `src/mods/` = optional asset replacement |
 | `tools/build.sh` | Patch + recompile both variants and copy data into `web/public/` |
+| `tools/state_roots.py`, `tools/states/verify.mjs` | Save states: generator of `StateRoots.java` (the game's static fields, from the patched jar) and a self-check of the host-side copy |
 | `tools/patch_jar.py` | Build-time jar patch: `Thread.sleep` -> `rdash.GameHooks.sleep`, three calls -> `Mods.hud`/`sky`/`walk`, public fields, dropped overridden classes |
 | `tools/extract_assets.py` | Unpack jar / scratchpad / SD data into `build/assets/` for inspection |
 | `tools/play.mjs` | Headless Chrome driver: key presses, screenshots and canvas video recording (`build/shots/`) |
@@ -260,6 +261,27 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   fullscreen, while the pointer is moving (the button row below the game is hidden there).
   While a controller is connected the stick and buttons are hidden and the gauges return to the
   screen edges.
+- **Save states** (Save / Load in the touch toolbar and under the game; `savestate.js`,
+  `Mods.saveStates`, `tools/state_roots.py`): an exact copy of the running game in memory, one
+  slot, gone when the page closes. Not a memory dump — there is no emulated machine — but a
+  copy of the recompiled module's object graph: `save` walks every object reachable from the
+  game's root object and static fields and records each field (array contents copied), `load`
+  writes all of it back into the same objects. Both run in `Mods.frame`, i.e. at the single
+  place the game presents a frame (`ad.a(Graphics)`, called from the loop in `ad.run()`), so
+  the game thread is always suspended at the same point and only objects need restoring.
+  Game objects are recognised by the TeaVM class metadata on their constructor
+  (`Symbol("teavm_meta")`); anything else a field points to (three.js objects, pictures,
+  sounds) is host-owned, kept by reference and not looked into. Static fields are module-level
+  variables that nothing outside can reach, so `tools/build.sh` generates `StateRoots.java`
+  (git-ignored) from the patched jar with `javap`: `capture()` returns all static values,
+  `apply()` assigns them back. Saved with it: scratchpad and SD contents (`Resources`), what
+  each audio port plays (restarted on load, since the game may be waiting for a jingle to end),
+  the free-look offsets. The game's `dispose` calls on pictures and 3D objects go through
+  `SaveStates.dispose`: what the saved state refers to is set aside and only freed when a newer
+  save replaces it. Saving is limited to missions (other screens draw into off-screen pictures
+  whose pixels are not copied); loading works from any screen. About 10-20 thousand objects
+  and 1.3 MB per state, 10-30 ms on a desktop. `node tools/states/verify.mjs` self-checks the
+  copy on stand-in objects.
 - **Fast-forward** (hold Tab or L3, or toggle with the Fast-forward button under the game / the
   ▶▶ touch button): 4x game speed through the same frame-limiter mechanism as the speed cheat,
   for dialogue and cutscenes.
@@ -404,7 +426,8 @@ Keep this section current.
   sensitivity, inversion, distance and mouse capture; direct movement from the stick or the
   keys; controller support with rumble, rebindable controls, a controller-driven settings menu;
   touch stick, buttons and swipe-look; fast-forward; sampled music instruments and separate
-  music/effects volume; save export/import; cheats; fast loading; Legends 2 character models.
+  music/effects volume; save export/import; save states; cheats; fast loading; Legends 2
+  character models.
 - Working: recompilation of both variants, boot, title/menus, save loading from the dumped
   scratchpad, SD-card island data, 2D UI and dialogue, 3D maps, character models and animation,
   effects, collision, keyboard/gamepad/touch input, save persistence (IndexedDB), the game-server
@@ -419,7 +442,10 @@ Keep this section current.
   simulated input (keyboard, a fake gamepad, synthetic touch events) in headless Chrome. Not yet
   checked by a person: how the music sounds, how interpolated motion looks, mouse capture and
   real fullscreen (headless Chrome can do neither), touch on a real device, and a play-through
-  from start to finish.
+  from start to finish. Save states: verified in the game by saving, playing on (rooms, menus,
+  the map, random input), loading and comparing the picture, and by replaying the same input
+  to an identical picture; loading a state after the game left that mission and freed its
+  resources is covered only by the self-check, not seen in the game.
 - Legends 2 replacement: MegaMan, Roll, Tron and Teisel are replaced in the New Game intro
   cutscenes and the in-game player (assembled from parts) is replaced during play; poses match
   the phone models' at the same frame. The Servbot mapping has not been seen in a test. The

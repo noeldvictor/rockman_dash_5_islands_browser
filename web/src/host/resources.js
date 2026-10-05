@@ -149,6 +149,37 @@ export class Resources {
     }
   }
 
+  // ---- save states (savestate.js) ---------------------------------------------------------------
+
+  /** The scratchpad and SD-card contents as they are now. */
+  snapshot() {
+    // segments are written in place; SD files are replaced whole, so their arrays can be shared
+    return { segments: this.segments.map((s) => s.slice()), sd: new Map(this.sd) };
+  }
+
+  /** Put a snapshot() back, in memory and in the persisted copy. */
+  restore({ segments, sd }) {
+    segments.forEach((bytes, seg) => {
+      const s = this.segments[seg];
+      if (!s || s.length !== bytes.length) return;
+      if (s.every((v, i) => v === bytes[i])) return;
+      s.set(bytes);
+      this.#persist(`sp:${seg}`, s);
+    });
+    for (const name of this.sd.keys()) {
+      if (!sd.has(name)) {
+        this.sd.delete(name);
+        this.#persist(`sd:${name}`, null);
+      }
+    }
+    for (const [name, bytes] of sd) {
+      if (this.sd.get(name) === bytes) continue;
+      this.sd.set(name, bytes);
+      // a file as shipped is not kept in the persisted copy
+      this.#persist(`sd:${name}`, this.shipped.get(name) === bytes ? null : bytes);
+    }
+  }
+
   // ---- host interface (called from the recompiled game through rdash.Host) -------------------
   resource(name) {
     const f = this.jar[name];

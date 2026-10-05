@@ -123,6 +123,21 @@ public final class Host {
     @JSBody(script = "return globalThis.DOJA.camera.analogSpeed;")
     public static native float analogSpeed();
 
+    /** Save states: what the player asked for since the last frame (0 nothing, 1 save, 2 load). */
+    @JSBody(script = "return globalThis.DOJA.states.takeRequest();")
+    public static native int stateRequest();
+
+    /**
+     * Save states: copy the game's memory, walking it from {@code roots} (an Object[] of the
+     * game's static values and its root object). {@code allowed} false = not a moment to save.
+     */
+    @JSBody(params = {"roots", "allowed"}, script = "return globalThis.DOJA.states.save(roots, allowed);")
+    public static native boolean stateSave(Object roots, boolean allowed);
+
+    /** Save states: put the copied memory back; false when there is nothing saved. */
+    @JSBody(script = "return globalThis.DOJA.states.load();")
+    public static native boolean stateLoad();
+
     /** Bit set of Mods.* cheat flags; one-shot flags are cleared by the host when read. */
     @JSBody(script = "return globalThis.DOJA.cheats.flags();")
     public static native int cheatFlags();
@@ -242,7 +257,8 @@ public final class Host {
     @JSBody(params = {"img"}, script = "return img.graphics();")
     public static native JSObject imageGraphics(JSObject img);
 
-    @JSBody(params = {"img"}, script = "img.dispose();")
+    // disposal goes through the save states: what a saved state still uses must stay usable
+    @JSBody(params = {"img"}, script = "globalThis.DOJA.states.dispose(img);")
     public static native void imageDispose(JSObject img);
 
     @JSBody(params = {"g"}, script = "g.lock();")
@@ -317,7 +333,7 @@ public final class Host {
     @JSBody(params = {"o"}, script = "return o ? o.type : 0;")
     public static native int g3dType(JSObject o);
 
-    @JSBody(params = {"o"}, script = "o.dispose();")
+    @JSBody(params = {"o"}, script = "globalThis.DOJA.states.dispose(o);")
     public static native void g3dDispose(JSObject o);
 
     @JSBody(params = {"o", "t"}, script = "o.setTime(t);")

@@ -8,6 +8,7 @@ import { Net } from './host/net.js';
 import { FreeCamera } from './host/camera.js';
 import { Cheats } from './host/cheats.js';
 import { Settings } from './host/settings.js';
+import { SaveStates } from './host/savestate.js';
 import { SettingsMenu } from './host/menu.js';
 import { setTextureFilter, setMaxAnisotropy, loadTexturePack, packStats } from './host/texfilter.js';
 import { setLighting, setCelShading, shadows, markScenery } from './host/lighting.js';
@@ -273,6 +274,31 @@ async function start(variant) {
     screen.edgeHud = !document.body.classList.contains('touch') || !!name;
     menu.setPadName(name);
   };
+
+  // save states: an exact copy of the game in memory, taken and put back between two frames
+  let toastTimer = 0;
+  const toast = (text) => {
+    $('toast').textContent = text;
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $('toast').hidden = true; }, 1800);
+  };
+  const states = new SaveStates({
+    list: [resources, audio, camera],
+    afterLoad: () => screen.cut(),
+    notify: (kind) => {
+      for (const id of ['btn-load', 'ov-load']) $(id).disabled = !states.available;
+      toast({
+        saved: 'State saved',
+        loaded: 'State loaded',
+        refused: 'States can be saved during a mission',
+        empty: 'No saved state yet',
+      }[kind]);
+    },
+  });
+  globalThis.DOJA.states = states;
+  for (const id of ['btn-save', 'ov-save']) $(id).addEventListener('click', () => states.requestSave());
+  for (const id of ['btn-load', 'ov-load']) $(id).addEventListener('click', () => states.requestLoad());
 
   // page controls
   const refreshBar = () => {

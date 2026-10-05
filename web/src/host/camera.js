@@ -96,6 +96,20 @@ export class FreeCamera {
     this.#changed = true;
   }
 
+  /** Save states (savestate.js): the offsets belong to the picture the game had built. */
+  snapshot() {
+    return { yaw: this.yaw, pitch: this.pitch, playerYaw: this.playerYaw, world: this.#world, holdWorld: this.holdWorld };
+  }
+
+  restore(saved) {
+    this.yaw = saved.yaw;
+    this.pitch = saved.pitch;
+    this.playerYaw = saved.playerYaw;
+    this.#world = saved.world;
+    this.holdWorld = saved.holdWorld;
+    this.#changed = true;
+  }
+
   recenter() {
     this.yaw = 0;
     this.pitch = 0;
