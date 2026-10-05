@@ -15,6 +15,7 @@ import { setLighting, setCelShading, shadows, markScenery } from './host/lightin
 import { keyOf } from './host/contentkey.js';
 import { setupTouch } from './host/touch.js';
 import { legends2 } from './mods/legends2.js';
+import { remake } from './mods/remake.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -201,6 +202,7 @@ async function start(variant) {
     camera,
     cheats,
     legends2,
+    remake,
     settings,
     shadows,
     packStats,
@@ -356,6 +358,10 @@ async function start(variant) {
   audio.loadSoundfont('soundfont').then((found) => { menu.available.soundfont = found; });
 
   // optional Legends 2 models (only if the user installed them; see tools/mml2/)
+  if (await remake.load('remake', (name) => resources.findAll(name))) {
+    menu.available.remake = true;
+    settings.bind('remake', (v) => { remake.enabled = v; });
+  }
   if (await legends2.load('mml2', (name) => resources.findAll(name))) {
     menu.available.legends2 = true;
     settings.bind('legends2', (v) => { legends2.enabled = v; });

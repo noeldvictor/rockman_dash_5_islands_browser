@@ -4,13 +4,14 @@
 // device or archived and opened straight from disk, with no server.
 //
 //   node tools/package/single_html.mjs [--out build/package/name.html] [--small] [--full]
-//                                      [--hd] [--legends2] [--variant localized|delocalized]
+//                                      [--hd] [--legends2] [--remake] [--variant localized|delocalized]
 //
 //   (default)  both variants, game data, sampled music instruments if they were generated
 //   --small    no sampled instruments (music uses the built-in synthesiser)
 //   --hd       also the AI-upscaled texture pack (web/public/hd), if present
 //   --legends2 also the installed Legends 2 models (web/public/mml2), if present
-//   --full     everything: --hd --legends2
+//   --remake   also the remade models (web/public/remake), if present
+//   --full     everything: --hd --legends2 --remake
 //   --variant  only one variant of the English patch
 //
 // How: every file the page would fetch is embedded as base64 in a <script type=
@@ -36,6 +37,7 @@ const want = {
   soundfont: !has('--small'),
   hd: has('--hd') || has('--full'),
   mml2: has('--legends2') || has('--full'),
+  remake: has('--remake') || has('--full'),
 };
 
 if (!existsSync(join(dist, 'index.html'))) {
@@ -56,6 +58,7 @@ const files = walk(dist).map((p) => relative(dist, p).split('\\').join('/')).fil
   if (path.startsWith('soundfont/')) return want.soundfont;
   if (path.startsWith('hd/')) return want.hd;
   if (path.startsWith('mml2/')) return want.mml2;
+  if (path.startsWith('remake/')) return want.remake;
   return false;
 });
 

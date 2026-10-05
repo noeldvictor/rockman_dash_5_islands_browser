@@ -5,6 +5,7 @@ import {
   parseMBAC, parseMTRA, poseModel, getActionPattern, computeBoneMatrices,
 } from '../formats/mbac.js';
 import { legends2 } from '../mods/legends2.js';
+import { remake } from '../mods/remake.js';
 import {
   TYPE, getMaterial, getOutlineMaterial, frameClock, BLEND_NORMAL, BLEND_ALPHA, BLEND_ADD,
 } from './g3d.js';
@@ -55,6 +56,9 @@ class Figure3D {
       ? new THREE.BufferAttribute(b.colors, 3, true) : null));
     // people and enemies, as opposed to doors, crates and effects: cel shading, shadows
     this.character = isCharacter(keyOf(bytes));
+    // optional remade model (mods/remake.js); rigid models only, so far
+    this.remade = remake.ready && model.numBones <= 1 ? remake.find(bytes) : undefined;
+    this.remadeInstances = new Map(); // remade model -> its copies, one per draw in a frame
     // optional Legends 2 model replacement (mods/legends2.js): which player part this is, if any
     this.role = legends2.ready ? legends2.roleOf(bytes) : undefined;
     if (this.role) {
@@ -210,6 +214,18 @@ class Figure3D {
   /** Snapshot the current pose/pattern/material state into meshes for this flush. */
   build() {
     const model = this.model;
+    if (this.remade && remake.enabled && this.blendMode === BLEND_NORMAL && this.transparency >= 100) {
+      // drawn whole under the same model matrix; one copy per draw of this figure in a frame
+      const remade = remake.pick(this.remade, this.textures[0]?.key);
+      if (remade) {
+        let copies = this.remadeInstances.get(remade);
+        if (!copies) this.remadeInstances.set(remade, (copies = []));
+        const node = copies[this.used] || (copies[this.used] = remake.instance(remade));
+        this.used++;
+        remake.stats.drawn++;
+        return [node];
+      }
+    }
     const table = this.action && this.action.table.actions[this.actionIndex] ? this.action.table : null;
     poseModel(model, table, this.actionIndex, this.time, this.posed);
     const pattern = table ? getActionPattern(table, this.actionIndex, this.time, this.pattern) : this.pattern;

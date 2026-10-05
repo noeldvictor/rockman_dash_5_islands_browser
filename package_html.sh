@@ -4,7 +4,7 @@
 #
 #   ./package_html.sh            game + both variants + sampled music   (about 40 MB)
 #   ./package_html.sh --small    without the sampled music instruments  (about 12 MB)
-#   ./package_html.sh --full     also AI textures and Legends 2 models, if you have them
+#   ./package_html.sh --full     also AI textures, Legends 2 and remade models, if you have them
 #
 # The file contains your game files: keep it for yourself.
 set -euo pipefail

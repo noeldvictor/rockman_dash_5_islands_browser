@@ -18,6 +18,7 @@ import { registerTexture } from './texfilter.js';
 import { makeLit, makeOutline, updateDraw, shadows } from './lighting.js';
 import { FIGURE_SCALE } from './conventions.js';
 import { frameClock } from './frameclock.js';
+import { keyOf } from './contentkey.js';
 
 export const TYPE = {
   ACTION_TABLE: 1, FIGURE: 2, TEXTURE: 3, PRIMITIVE: 6, GROUP: 7,
@@ -50,6 +51,7 @@ export class Texture3D {
     this.width = bmp.width;
     this.height = bmp.height;
     this.bmp = bmp;
+    this.key = keyOf(bytes); // which picture this is (mods/remake.js picks a model by it)
     this.textures = new Map(); // colorKey flag -> THREE.DataTexture
   }
 

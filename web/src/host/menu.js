@@ -37,7 +37,7 @@ export class SettingsMenu {
     this.tab = 'video';
     this.padName = null;
     /** Rows that only apply when something optional is installed: id -> boolean */
-    this.available = { legends2: false, soundfont: false, texturePack: false };
+    this.available = { legends2: false, remake: false, soundfont: false, texturePack: false };
     this.#listening = null;
     root.hidden = true;
     // keys typed in the menu never reach the game or the page shortcuts
@@ -345,6 +345,9 @@ export class SettingsMenu {
       this.available.legends2
         ? this.#check('legends2', 'Legends 2 character models', 'Draw characters with the installed Mega Man Legends 2 models')
         : el('p', { class: 'note' }, 'Legends 2 character models are not installed (see tools/mml2/).'),
+      ...(this.available.remake
+        ? [this.#check('remake', 'Remade models', 'Draw the AI-remade models that are installed in place of the phone models')]
+        : []),
       el('div', { class: 'buttons' },
         el('button', { type: 'button', onclick: () => this.onExportSave?.() }, 'Export save file'),
         el('button', { type: 'button', onclick: () => this.onImportSave?.() }, 'Import save file…')),

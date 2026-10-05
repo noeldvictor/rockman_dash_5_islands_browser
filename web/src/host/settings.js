@@ -51,6 +51,8 @@ export const DEFAULTS = {
   cameraDistance: 1,
   // extras
   legends2: true,
+  /** draw the remade models where they are installed (web/public/remake/) */
+  remake: true,
 };
 
 export class Settings {

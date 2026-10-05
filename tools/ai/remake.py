@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Remake one of the phone game's models with Tripo: picture -> HD picture -> 3D model.
+"""Remake one of the phone game's models with Tripo: pictures -> HD pictures -> 3D model.
 
     .venv/bin/python tools/ai/remake.py <model> [<model> ...]
-        [--image-model banana2]   image model for the redraw (see the Tripo pricing page)
+        [--image-model banana2]   image model for the redraws (see the Tripo pricing page)
         [--faces 8000]            triangle budget of the result
-        [--raw]                   skip the redraw: build straight from the phone render
+        [--views front,back]      which sides to show Tripo (front, back, left, right)
         [--force]                 redo steps whose output already exists
+
+A model is named like its file (o01, kobun); one the game draws with several textures takes
+the texture's number after an @ (o07@02; `phone_models.py --views sheet` shows them all).
 
 Per model, in build/ai/models/<model>/ (git-ignored, never committed: derived from the game):
 
-  phone_hero.png   the phone model, rendered (tools/ai/phone_models.py; needs the dev server)
-  art.png          that picture redrawn as clean HD art by an image model (image-to-image)
-  model.glb        the 3D model Tripo built from art.png (image-to-model, low poly, textured)
-  compare.png      the three side by side: phone model, redraw, new model
+  phone_*.png      the phone model, rendered (tools/ai/phone_models.py; needs the dev server)
+  art_<side>.png   each side redrawn as clean HD art by an image model (image-to-image)
+  model.glb        the 3D model Tripo built from those (multiview-to-model, low poly, textured)
+  compare.png      side by side: phone model, the redraws, the new model from two sides
   tasks.json       the Tripo task of each step and what it cost
 
-Steps whose output exists are skipped, so a run can be repeated or continued. Costs credits:
-about 10 for the picture and 50 for the model.
+Only what a picture shows is reliable, so at least the front and the back are given. Steps whose
+output exists are skipped, and a task that was paid for is fetched again rather than started
+twice, so a run can be repeated or continued. Costs credits: about 10 per picture, 50 per model.
 """
 import argparse
 import base64
@@ -33,12 +37,13 @@ OUT = os.path.join(ROOT, 'build', 'ai', 'models')
 PY = sys.executable
 
 REDRAW = (
-    'Redraw this low-polygon video game 3D model as clean, high-resolution concept art of the same '
-    'subject for a modern remake. Keep its design, colours, proportions, pose and viewing angle '
-    'exactly. Look: smooth cel-shaded anime 3D in the style of Mega Man Legends 3: rounded smooth '
-    'surfaces, crisp flat colours, clean panel lines, no texture noise, no pixelation, no blur. '
-    'Show the whole subject, centred, on a plain white background, with no shadow, no text and '
-    'nothing else in the picture.'
+    'Redraw this picture of a low-polygon video game 3D model as clean, high-resolution concept art '
+    'of exactly the same subject, seen from exactly the same side and angle, for a modern remake. '
+    'Do not turn it, do not change which parts are visible, and do not add or remove any part: '
+    'every shape, colour and marking stays where it is. Look: smooth cel-shaded anime 3D in the '
+    'style of Mega Man Legends 3: rounded smooth surfaces, crisp flat colours, clean panel lines, '
+    'no texture noise, no pixelation, no blur. Show the whole subject, centred, on a plain white '
+    'background, with no shadow, no text and nothing else in the picture.'
 )
 
 
@@ -70,58 +75,67 @@ def url_of(output, *names):
             return v
         if isinstance(v, dict) and isinstance(v.get('url'), str):
             return v['url']
-        if isinstance(v, list) and v:
-            return v[0]['url'] if isinstance(v[0], dict) else v[0]
     raise KeyError(f'none of {names} in {json.dumps(output)[:400]}')
 
 
 def remake(name, args):
     folder = os.path.join(OUT, name)
-    hero = os.path.join(folder, 'phone_hero.png')
-    art = os.path.join(folder, 'art.png')
-    glb = os.path.join(folder, 'raw.glb' if args.raw else 'model.glb')
-    if args.force or not os.path.exists(hero):
-        subprocess.run([PY, os.path.join(ROOT, 'tools', 'ai', 'phone_models.py'), name, '--views', 'hero'], check=True)
-    source = hero
-    if not args.raw:
-        if args.force or not os.path.exists(art):
-            print(f'{name}: redrawing the picture ({args.image_model})')
-            task = run(folder, 'art', lambda: tripo.submit(
-                'generation/image-to-image', model=args.image_model, input=tripo.upload(hero), prompt=REDRAW), args.force)
-            tripo.download(url_of(task['output'], 'generated_image_url', 'image_url'), art)
-        source = art
-    if args.force or not os.path.exists(glb):
-        print(f'{name}: building the model from {os.path.basename(source)}')
-        task = run(folder, 'raw' if args.raw else 'model', lambda: tripo.submit(
-            'generation/image-to-model', input=tripo.upload(source), model='v3.1-20260211',
-            smart_low_poly=True, face_limit=args.faces,
+    sides = args.views.split(',')
+    phone = {s: os.path.join(folder, f'phone_view_{s}.png') for s in sides}
+    if args.force or not all(os.path.exists(p) for p in phone.values()) or not os.path.exists(os.path.join(folder, 'phone_hero.png')):
+        for views in ('turn', 'hero'):
+            subprocess.run([PY, os.path.join(ROOT, 'tools', 'ai', 'phone_models.py'), name, '--views', views], check=True)
+    art = {s: os.path.join(folder, f'art_{s}.png') for s in sides}
+    for side in sides:
+        if os.path.exists(art[side]) and not args.force:
+            continue
+        print(f'{name}: redrawing the {side} ({args.image_model})')
+
+        # the side is not named to the image model: told "this is the front", it draws a front
+        # (the car's rear came back with headlights). Each side is redrawn on its own.
+        task = run(folder, f'art_{side}', lambda side=side: tripo.submit(
+            'generation/image-to-image', model=args.image_model, input=tripo.upload(phone[side]), prompt=REDRAW),
+            args.force)
+        tripo.download(url_of(task['output'], 'generated_image_url', 'image_url'), art[side])
+    glb = os.path.join(folder, 'model.glb')
+    step = 'model_' + '_'.join(sides)
+    log = os.path.join(folder, 'tasks.json')
+    built = os.path.exists(log) and step in json.load(open(log))
+    if args.force or not built or not os.path.exists(glb):
+        print(f'{name}: building the model from {len(sides)} pictures')
+        task = run(folder, step, lambda: tripo.submit(
+            'generation/multiview-to-model', inputs=[{s: tripo.upload(art[s])} for s in sides],
+            model='v3.1-20260211', smart_low_poly=True, face_limit=args.faces,
             texture=True, pbr=False, texture_quality='detailed', texture_alignment='original_image',
         ), args.force)
         tripo.download(url_of(task['output'], 'model_url', 'pbr_model_url', 'base_model_url', 'model'), glb)
-    compare(name, folder, glb, args)
+    compare(name, folder, glb, [art[s] for s in sides], args)
 
 
-def compare(name, folder, glb, args):
-    """phone model | redraw | new model, as one picture."""
+def compare(name, folder, glb, pictures, args):
+    """phone model | the redraws | new model from two sides, as one picture."""
     from PIL import Image
     from playwright.sync_api import sync_playwright
-    shot = os.path.join(folder, 'raw_hero.png' if args.raw else 'model_hero.png')
     with sync_playwright() as pw:
         browser = pw.chromium.launch(args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
         page = browser.new_page()
         page.goto(args.url)
         page.wait_for_function('window.modelviewReady === true')
         data = base64.b64encode(open(glb, 'rb').read()).decode()
-        urls = page.evaluate('(o) => window.renderGlb(o)', {'glb': data, 'views': [[args.yaw, 12]], 'size': 1024})
+        # Tripo's models face +x: a three-quarter view of the front, and the opposite one
+        urls = page.evaluate('(o) => window.renderGlb(o)', {'glb': data, 'views': [[118, 12], [298, 12]], 'size': 1024})
         info = page.evaluate('(o) => window.glbInfo(o)', {'glb': data})
-        open(shot, 'wb').write(base64.b64decode(urls[0].split(',')[1]))
         browser.close()
-    tiles = [os.path.join(folder, 'phone_hero.png')] + ([] if args.raw else [os.path.join(folder, 'art.png')]) + [shot]
-    images = [Image.open(t).convert('RGB').resize((640, 640), Image.LANCZOS) for t in tiles]
-    sheet = Image.new('RGB', (640 * len(images), 640), 'white')
+    shots = []
+    for i, url in enumerate(urls):
+        shots.append(os.path.join(folder, f'model_{i}.png'))
+        open(shots[-1], 'wb').write(base64.b64decode(url.split(',')[1]))
+    tiles = [os.path.join(folder, 'phone_hero.png')] + pictures + shots
+    images = [Image.open(t).convert('RGB').resize((512, 512), Image.LANCZOS) for t in tiles]
+    sheet = Image.new('RGB', (512 * len(images), 512), 'white')
     for i, im in enumerate(images):
-        sheet.paste(im, (640 * i, 0))
-    out = os.path.join(folder, 'compare_raw.png' if args.raw else 'compare.png')
+        sheet.paste(im, (512 * i, 0))
+    out = os.path.join(folder, 'compare.png')
     sheet.save(out)
     print(f"{name}: {info['triangles']} triangles, {info['textures']} texture(s) {info['textureSize']} -> {out}")
 
@@ -131,14 +145,16 @@ def main():
     ap.add_argument('names', nargs='+')
     ap.add_argument('--image-model', default='banana2')
     ap.add_argument('--faces', type=int, default=8000)
-    ap.add_argument('--raw', action='store_true')
+    ap.add_argument('--views', default='front,back')
     ap.add_argument('--force', action='store_true')
-    ap.add_argument('--yaw', type=float, default=118, help='view of the new model in the comparison (Tripo models face +x)')
     ap.add_argument('--url', default='http://localhost:5173/modelview.html')
     args = ap.parse_args()
     before = tripo.balance()
     for name in args.names:
-        remake(name.split('.')[0], args)
+        try:
+            remake(name.split('.')[0], args)
+        except Exception as e:  # one model failing should not stop the rest of a batch
+            print(f'{name}: FAILED: {e}')
     print(f'credits used: {before - tripo.balance()} (balance {tripo.balance()})')
 
 

@@ -21,7 +21,7 @@ from playwright.sync_api import sync_playwright
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ASSETS = os.path.join(ROOT, 'build', 'assets')
 OUT = os.path.join(ROOT, 'build', 'ai', 'models')
-VIEWS = {'front': [[0, 8]], 'hero': [[28, 12]], 'turn': [[0, 8], [90, 8], [180, 8], [270, 8]], 'sheet': [[25, 12]]}
+VIEWS = {'front': [[0, 8]], 'hero': [[28, 12]], 'turn': [[0, 0], [90, 0], [180, 0], [270, 0]], 'sheet': [[25, 12]]}
 
 
 def find(name):
@@ -39,6 +39,29 @@ def models():
         for f in glob.glob(os.path.join(ASSETS, pattern, '*.mba*')):
             names.add(os.path.basename(f))
     return sorted(names)
+
+
+def split(name):
+    """'o07@02' -> ('o07', '02'): a model drawn with one particular texture of several."""
+    stem, _, variant = name.split('.')[0].partition('@')
+    return stem, variant or None
+
+
+def model_file(name):
+    stem = split(name)[0]
+    return next((m for m in models() if m.split('.')[0] == stem), None)
+
+
+def texture_sets(model, count):
+    """The texture sets a model is drawn with: {variant or None: [files in texture-index order]}.
+
+    A model that uses `count` textures and has more numbered files than that is one the game
+    reuses with a different picture each time (doors, wall pieces, recoloured enemies).
+    """
+    files = textures_of(model)
+    if count == 1 and len(files) > 1:
+        return {os.path.basename(f).rsplit('_', 1)[1].split('.')[0]: [f] for f in files}
+    return {None: files[:max(count, 1)]}
 
 
 def textures_of(model):
@@ -70,21 +93,34 @@ def main():
     ap.add_argument('names', nargs='*')
     ap.add_argument('--views', default='hero', choices=VIEWS)
     ap.add_argument('--size', type=int, default=1024)
+    ap.add_argument('--variants', action='store_true', help='every texture variant of the named models')
     ap.add_argument('--url', default='http://localhost:5173/modelview.html')
     args = ap.parse_args()
-    names = [n if '.' in n else next((m for m in models() if m.split('.')[0] == n), n) for n in args.names] or models()
+    names = args.names or models()
     with sync_playwright() as pw:
         browser = pw.chromium.launch(args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
         page = browser.new_page()
         page.goto(args.url)
         page.wait_for_function('window.modelviewReady === true')
         sheet = []
+        todo = []
         for name in names:
-            path = find(name)
-            if not path:
+            phone = model_file(name)
+            if not phone:
                 print('missing', name)
                 continue
-            options = {'model': b64(path), 'textures': [b64(t) for t in textures_of(name)],
+            info = page.evaluate('(o) => window.modelInfo(o)', {'model': b64(find(phone))})
+            sets = texture_sets(phone, info['textures'])
+            stem, variant = split(name)
+            if variant:
+                todo.append((f'{stem}@{variant}', phone, sets.get(variant, [])))
+            elif args.views == 'sheet' or args.variants:
+                todo += [(stem if v is None else f'{stem}@{v}', phone, files) for v, files in sets.items()]
+            else:
+                todo.append((stem, phone, next(iter(sets.values()))))
+        for label, name, files in todo:
+            path = find(name)
+            options = {'model': b64(path), 'textures': [b64(t) for t in files],
                        'views': VIEWS[args.views], 'size': 256 if args.views == 'sheet' else args.size}
             action = find(name.split('.')[0] + '.mtr') or find(name.split('.')[0] + '.mtra')
             if action and name in ('rock.mba', 'roll.mba', 'toron.mba', 'tisel.mba', 'kobun.mba'):
@@ -95,13 +131,15 @@ def main():
             except Exception as e:
                 print('failed', name, str(e)[:200])
                 continue
-            stem = name.split('.')[0]
+            stem = label
             if args.views == 'sheet':
                 sheet.append((stem, base64.b64decode(urls[0].split(',')[1]), info))
                 continue
             os.makedirs(os.path.join(OUT, stem), exist_ok=True)
             for (yaw, _), url in zip(VIEWS[args.views], urls):
                 view = {0: 'front', 28: 'hero', 90: 'left', 180: 'back', 270: 'right'}.get(yaw, str(yaw))
+                if args.views == 'turn':
+                    view = 'view_' + view
                 out = os.path.join(OUT, stem, f'phone_{view}.png')
                 with open(out, 'wb') as f:
                     f.write(base64.b64decode(url.split(',')[1]))

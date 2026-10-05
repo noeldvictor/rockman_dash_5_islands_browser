@@ -138,6 +138,88 @@ window.glbInfo = async (options) => {
   return { triangles, textures: maps.size, textureSize: first ? `${first.width}x${first.height}` : '', min: box.min.toArray(), max: box.max.toArray() };
 };
 
+/** A .glb as the game would draw it: unlit, texture colours as they are. */
+async function glbGroup(glb) {
+  const gltf = await new GLTFLoader().parseAsync(bytes(glb).buffer, '');
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const flat = (m) => new THREE.MeshBasicMaterial({ map: m.map, side: THREE.DoubleSide });
+    o.material = Array.isArray(o.material) ? o.material.map(flat) : flat(o.material);
+  });
+  gltf.scene.updateMatrixWorld(true);
+  return gltf.scene;
+}
+
+/** Small orthographic pictures of `object` from the front, the left and above, framed on `box`. */
+function probe(object, box, size = 96) {
+  renderer ??= new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1);
+  renderer.setSize(size, size, false);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#ffffff');
+  scene.add(object);
+  const centre = box.getCenter(new THREE.Vector3());
+  const half = box.getSize(new THREE.Vector3()).length() / 2 || 1;
+  const camera = new THREE.OrthographicCamera(-half, half, half, -half, 0.01, half * 8);
+  const gl = renderer.getContext();
+  const out = [];
+  for (const [dir, up] of [[[0, 0, 1], [0, 1, 0]], [[1, 0, 0], [0, 1, 0]], [[0, 1, 0], [0, 0, -1]]]) {
+    camera.position.set(centre.x + dir[0] * half * 3, centre.y + dir[1] * half * 3, centre.z + dir[2] * half * 3);
+    camera.up.set(...up);
+    camera.lookAt(centre);
+    renderer.render(scene, camera);
+    const px = new Uint8Array(size * size * 4);
+    gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    out.push(px);
+  }
+  scene.remove(object);
+  return out;
+}
+
+/**
+ * Fit a remade model to the phone model it replaces: the same bounding box, and of the four
+ * upright orientations the one that looks most like it from the front, the side and above.
+ * Returns the 4x4 matrix (column-major, three.js order) from .glb space to phone model units.
+ */
+window.fitGlb = async (options) => {
+  const phone = phoneGroup(options);
+  const target = new THREE.Box3().setFromObject(phone);
+  const want = probe(phone, target);
+  const scene = await glbGroup(options.glb);
+  const source = new THREE.Box3().setFromObject(scene);
+  const from = source.getCenter(new THREE.Vector3());
+  const to = target.getCenter(new THREE.Vector3());
+  const size = target.getSize(new THREE.Vector3());
+  const holder = new THREE.Group();
+  holder.add(scene);
+  holder.matrixAutoUpdate = false;
+  let best = null;
+  for (let turn = 0; turn < 4; turn++) {
+    const s = source.getSize(new THREE.Vector3());
+    if (turn % 2) [s.x, s.z] = [s.z, s.x]; // a quarter turn swaps the footprint
+    // the phone model's height exactly; its footprint too, unless that would distort the shape
+    const k = size.y / s.y;
+    const fit = (a, b) => Math.min(1.3, Math.max(0.77, a / b / k)) * k;
+    const matrix = new THREE.Matrix4().makeTranslation(to.x, to.y, to.z)
+      .multiply(new THREE.Matrix4().makeScale(fit(size.x, s.x), k, fit(size.z, s.z)))
+      .multiply(new THREE.Matrix4().makeRotationY((turn * Math.PI) / 2))
+      .multiply(new THREE.Matrix4().makeTranslation(-from.x, -from.y, -from.z));
+    holder.matrix.copy(matrix);
+    holder.updateMatrixWorld(true);
+    const got = probe(holder, target);
+    let diff = 0;
+    for (let v = 0; v < 3; v++) for (let i = 0; i < got[v].length; i++) diff += Math.abs(got[v][i] - want[v][i]);
+    const score = diff / (3 * got[0].length);
+    if (!best || score < best.score) best = { score, turn, matrix: matrix.toArray() };
+  }
+  // for checking by eye: the phone model and the fitted one from the same two corners
+  holder.matrix.fromArray(best.matrix);
+  holder.updateMatrixWorld(true);
+  const views = { views: [[28, 12], [208, 12]], size: options.size ?? 512 };
+  best.pictures = [...shoot(phone, views), ...shoot(holder, views)];
+  return best;
+};
+
 window.modelInfo = (options) => {
   const m = parseMBAC(bytes(options.model));
   return { bones: m.numBones, vertices: m.numVertices, patterns: m.numPatterns, textures: m.numTextures,

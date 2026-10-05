@@ -5,7 +5,7 @@
 #
 #   ./package_android.sh            game + both variants + sampled music
 #   ./package_android.sh --small    without the sampled music instruments
-#   ./package_android.sh --full     also AI textures and Legends 2 models, if you have them
+#   ./package_android.sh --full     also AI textures, Legends 2 and remade models, if you have them
 #   ./package_android.sh --install  also install it on the device connected by USB (adb)
 #
 # Needs the Android SDK (platform + build-tools) and a JDK; no Gradle, no Android Studio project.
@@ -69,7 +69,7 @@ cp web/dist/index.html build/android/assets/www/
 cp -r web/dist/assets web/dist/game web/dist/data build/android/assets/www/
 if [ "$SMALL" = 0 ] && [ -d web/dist/soundfont ]; then cp -r web/dist/soundfont build/android/assets/www/; fi
 if [ "$FULL" = 1 ]; then
-  for extra in hd mml2; do
+  for extra in hd mml2 remake; do
     if [ -d "web/dist/$extra" ]; then cp -r "web/dist/$extra" build/android/assets/www/; fi
   done
 fi
