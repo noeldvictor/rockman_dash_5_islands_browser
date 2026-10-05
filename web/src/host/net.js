@@ -3,6 +3,7 @@
 // The game makes three kinds of request (see class `n` in the decompiled game):
 //   GET  <source>/data/area<island>_<chunk>_<version>.bin   island data, saved to the SD card as
 //                                                           rddata<island-1><chunk>.bin
+//   GET  <host>/RockmanDASH/RockmanDASH_Area.txt            how many islands there are ("5")
 //   POST <host>/i/party/sreg/isr.php?...&ty=save            back the save data up on the server
 //   GET  <host>/i/party/sreg/isr.php?...&ty=load            fetch the backup
 // isr.php answers with two status bytes (1 or 3 = ok, 140 = no backup stored), followed by the
@@ -31,6 +32,8 @@ export class Net {
       const chunk = this.resources.shipped.get(`rddata${Number(area[1]) - 1}${area[2]}.bin`);
       if (chunk) return { code: 200, body: i8(chunk) };
     }
+    // "Check Data" on the title menu asks how many islands the server has, as one ASCII digit
+    if (/RockmanDASH_Area\.txt$/.test(path.split('?')[0])) return { code: 200, body: new Int8Array([0x35]) };
     if (path.includes('isr.php')) {
       const type = /[?&]ty=(\w+)/.exec(path)?.[1];
       if (type === 'save' && body) {

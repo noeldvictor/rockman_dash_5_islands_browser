@@ -33,6 +33,26 @@ def _headers():
     return {'Authorization': f'Bearer {key()}'}
 
 
+def _request(method, url, **kw):
+    """requests.request, tried again on a network error or a 5xx answer (the service has its moments)."""
+    for attempt in range(8):
+        try:
+            if 'files' in kw:  # a file object: back to its start for another try
+                for _, f in kw['files'].values():
+                    f.seek(0)
+            r = requests.request(method, url, **kw)
+            if r.status_code < 500:
+                return r
+            problem = f'{r.status_code}'
+        except (requests.ConnectionError, requests.Timeout) as e:
+            problem = type(e).__name__
+        if attempt == 7:
+            break
+        print(f'  {problem} from the service, trying again in {10 * (attempt + 1)} s', flush=True)
+        time.sleep(10 * (attempt + 1))
+    raise RuntimeError(f'Tripo {method} {url}: {problem} after 8 tries')
+
+
 def _data(response):
     try:
         body = response.json()
@@ -45,21 +65,21 @@ def _data(response):
 
 
 def balance():
-    r = requests.get('https://api.tripo3d.ai/v2/openapi/user/balance', headers=_headers(), timeout=30)
+    r = _request('GET', 'https://api.tripo3d.ai/v2/openapi/user/balance', headers=_headers(), timeout=30)
     return _data(r)['balance']
 
 
 def upload(path):
     """Upload a picture or model; returns the file_token to use as a task's input."""
     with open(path, 'rb') as f:
-        r = requests.post(f'{BASE}/files', headers=_headers(), files={'file': (os.path.basename(path), f)}, timeout=300)
+        r = _request('POST', f'{BASE}/files', headers=_headers(), files={'file': (os.path.basename(path), f)}, timeout=300)
     return _data(r)['file_token']
 
 
 def submit(endpoint, **params):
     """Start a task (endpoint like 'generation/image-to-model'); returns its id."""
     for attempt in range(240):  # up to two hours: several runs may be sharing the few slots
-        r = requests.post(f'{BASE}/{endpoint}', headers=_headers(), json=params, timeout=60)
+        r = _request('POST', f'{BASE}/{endpoint}', headers=_headers(), json=params, timeout=60)
         if r.status_code != 429:
             break
         # only so many tasks at a time: wait for a running one to finish
@@ -70,7 +90,7 @@ def submit(endpoint, **params):
 
 
 def task(task_id):
-    return _data(requests.get(f'{BASE}/tasks/{task_id}', headers=_headers(), timeout=30))
+    return _data(_request('GET', f'{BASE}/tasks/{task_id}', headers=_headers(), timeout=30))
 
 
 def wait(task_id, every=5, limit=1800, quiet=False):
@@ -93,11 +113,10 @@ def wait(task_id, every=5, limit=1800, quiet=False):
 
 def download(url, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with requests.get(url, stream=True, timeout=300) as r:
-        r.raise_for_status()
-        with open(path, 'wb') as f:
-            for chunk in r.iter_content(1 << 16):
-                f.write(chunk)
+    r = _request('GET', url, timeout=300)
+    r.raise_for_status()
+    with open(path, 'wb') as f:
+        f.write(r.content)
     return path
 
 
