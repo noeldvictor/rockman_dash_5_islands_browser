@@ -124,6 +124,13 @@ public final class Host {
     @JSBody(params = {"on"}, script = "globalThis.DOJA.camera.mapMode = on;")
     public static native void mapMode(boolean on);
 
+    /**
+     * 3D sky option: the two halves of the area's sky panorama, for the host to draw as a dome
+     * behind the next 3D batch. False when the option is off (the game's flat sky is drawn then).
+     */
+    @JSBody(params = {"left", "right"}, script = "return globalThis.DOJA.gfx.sky(left, right);")
+    public static native boolean skyDome(JSObject left, JSObject right);
+
     /** Draw distance option: factor on the far plane the mission's camera culls against. */
     @JSBody(script = "return globalThis.DOJA.gfx.drawDistance();")
     public static native float drawDistance();

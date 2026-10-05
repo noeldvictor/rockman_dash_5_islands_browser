@@ -19,6 +19,7 @@ import { makeLit, makeOutline, updateDraw, shadows } from './lighting.js';
 import { FIGURE_SCALE } from './conventions.js';
 import { frameClock } from './frameclock.js';
 import { keyOf } from './contentkey.js';
+import { SkyDome } from './sky.js';
 
 export const TYPE = {
   ACTION_TABLE: 1, FIGURE: 2, TEXTURE: 3, PRIMITIVE: 6, GROUP: 7,
@@ -261,6 +262,14 @@ export class G3D {
      * own, nearer far plane, which ax.java moves out by the same factor (Host.drawDistance).
      */
     this.drawDistance = 1;
+    /** The "3D sky" option (sky.js): the dome, and the sky announced for the next batch. */
+    this.sky = new SkyDome();
+    this.pendingSky = null;
+  }
+
+  /** The game is about to draw an area with this sky (the two halves of its panorama). */
+  setSky(left, right) {
+    this.pendingSky = this.sky.get(left, right);
   }
 
   setClipRect(x, y, w, h) {
@@ -414,15 +423,18 @@ export class G3D {
       pivot: wide && this.projection.near === MISSION_NEAR && this.projection.far === MISSION_FAR
         ? (globalThis.DOJA?.camera?.pivotDistance ?? 0) : 0,
       pivotBefore: 0, // set by link()
+      sky: this.pendingSky, // drawn first, around the camera
       objects,
       matrices,
       before,
     });
+    this.pendingSky = null;
     this.queue = [];
   }
 
   /** The frame has been presented: drawing instances can be reused for the next one. */
   endFrame() {
+    this.pendingSky = null;
     frameClock.frame++;
     for (const obj of this.touched) obj.used = 0;
     this.touched.clear();
@@ -475,6 +487,7 @@ export class G3D {
       ? mixView(step.viewBefore, step.view, t, step.pivotBefore, step.pivot) : step.view;
     updateDraw(view, moving ? t : 1, step.wide ? screen.viewWidth : 240, 240);
     this.#updateCamera(step.projection, view, step.wide ? screen.aspect : 1);
+    if (step.sky) this.sky.draw(r, this.camera, step.sky);
     this.scene.children.length = 0;
     const { objects, matrices, before } = step;
     for (let i = 0; i < objects.length; i++) {

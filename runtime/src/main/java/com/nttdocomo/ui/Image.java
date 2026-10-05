@@ -36,6 +36,11 @@ public abstract class Image {
     public void setAlpha(int alpha) {
     }
 
+    /** port: the host's picture behind this image (for Mods, which hands the sky to the host). */
+    public JSObject portHandle() {
+        return js;
+    }
+
     static final class HostImage extends Image {
         HostImage(JSObject js) {
             this.js = js;

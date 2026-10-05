@@ -150,11 +150,18 @@ public final class Mods {
      * port: replaces ao.a(Graphics, av, int, int), the 2D sky behind outdoor areas; its one call
      * (in bp) is redirected here by tools/patch_jar.py. The sky is a 480 pixel panorama (two
      * images) that repeats every 180 degrees and scrolls with the player's heading. Changes from
-     * the original: the free-look camera's yaw offset is added to the heading, and the scroll
-     * position wraps (the original leaves part of the screen undrawn for headings below zero).
+     * the original: the free-look camera's yaw offset is added to the heading, the scroll
+     * position wraps (the original leaves part of the screen undrawn for headings below zero),
+     * and with the "3D sky" option the host draws the panorama as a dome instead.
      */
     public static void sky(ao map, Graphics g, av player, int island, int area) {
         if (!map.k || map.n[island][area] == 0) {
+            return;
+        }
+        // port: with the "3D sky" option the host draws the panorama as a dome around the
+        // camera, turning and tilting with it, instead of this flat scrolling picture
+        if (map.au[0] != null && map.au[1] != null
+                && Host.skyDome(map.au[0].portHandle(), map.au[1].portHandle())) {
             return;
         }
         float heading = FastMath.atan2(player.G.get(10), player.G.get(2));

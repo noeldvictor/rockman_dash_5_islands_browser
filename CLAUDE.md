@@ -80,7 +80,7 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 | `tools/trailer/` | `record.sh` records gameplay clips with `play.mjs` (scripted keys, a simulated controller, settings switched per clip); `edit.sh` cuts them with stills from `docs/`, captions and the title music into `build/trailer/trailer.mp4` |
 | `tools/d4d/`, `tools/mbac/`, `tools/mfi/` | Dump/validate scripts for the map, model and sound formats (`check_all.mjs` in each; `tools/mfi/render.mjs` renders a `.mld` to WAV, `verify.mjs` self-checks the synth) |
 | `tools/soundfont/` | `extract.mjs`: cut the instruments the music uses out of a General MIDI SoundFont into `web/public/soundfont/` |
-| `tools/ai/` | Optional AI helpers. On a ComfyUI server (`comfy.py`, address in `$COMFY`): `textures.py` builds the AI-upscaled texture pack, `music.py` + `mfi_abc.mjs` have YuE 2 perform a tune from its score (experimental). With the Tripo API: `phone_models.py`, `tripo.py`, `remake.py` (see "AI model remake") |
+| `tools/ai/` | Optional AI helpers. On a ComfyUI server (`comfy.py`, address in `$COMFY`): `textures.py` builds the AI-upscaled texture pack, `music.py` + `mfi_abc.mjs` have YuE 2 perform a tune from its score (experimental). With the Tripo API: `phone_models.py`, `tripo.py`, `remake.py`, `install_remake.py` (see "AI model remake"), `restyle.py` (map textures) and `skies.py` (sky panoramas) |
 | `tools/mml2/` | Mega Man Legends 2 (PSX) disc extraction: models, textures, music, sound (formats documented in each script's header); `install.py` copies what the host uses into `web/public/mml2/` |
 | `docs/` | Screenshots used by `README.md` |
 | `build/` | Scratch output, git-ignored |
@@ -360,6 +360,20 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   camera holds its world heading and the stick steers relative to it by pressing the game's own
   turn/forward keys (the game itself only has tank controls). `Mods.sky` adds the yaw offset to
   the 2D sky's scroll position (and wraps it; the original leaves gaps for negative headings).
+- **3D sky** (Settings > Video, on by default; `sky.js`, `Mods.sky`, `G3D.setSky`): the game's
+  sky is a flat 480-pixel panorama (two 240x240 GIFs, `sky<N>_0/1.gif`) scrolled sideways with
+  the heading and drawn behind the 3D. With the option on, `Mods.sky` hands the two pictures
+  to the host (`Host.skyDome`) instead of drawing them, and the host draws a dome first in the
+  3D batch that follows, with the batch's camera turned but not moved: the panorama wrapped
+  three times round at the scale the game shows it (240 pixels across 60 degrees), its top row
+  at 23 degrees up (where the top of the phone's screen was), fading into its top colour above
+  and, from just below the horizon, into sea. So the sky turns and tilts with the free-look
+  camera, is not stretched in widescreen, and wherever the camera sees past the edge of a map
+  there is a horizon instead of more sky. `tools/ai/skies.py` makes HD versions of the four
+  panoramas (image model through Tripo, 10 credits each) into `web/public/redraw/` (manifest
+  key `skies`, `<width>x<height>:<crc32 of RGB>` of the composed original); only the fine
+  detail is taken from the redraw, everything coarser than a cloud from the original, because
+  the model shifts the colours and does not return a tile that repeats.
 - **Dual-stick / direct movement** (Settings > Controls; `input.js`, `camera.js`, `Mods.java`):
   two settings, `directStick` (on by default: left stick moves, right stick looks) and
   `directKeys` (off by default: the movement keys/d-pad do the same, for use with mouse look).
@@ -588,7 +602,8 @@ Keep this section current.
   keys; controller support with rumble, rebindable controls, a controller-driven settings menu;
   touch stick, buttons and swipe-look; fast-forward; sampled music instruments and separate
   music/effects volume; save export/import; save states; cheats; fast loading; draw distance;
-  confirming that never fires the buster; Legends 2 character models with expressions;
+  confirming that never fires the buster; separate play and menu bindings with on-screen
+  button hints; a 3D sky with a horizon; Legends 2 character models with expressions;
   AI-remade models for rigid props (optional, see "AI model remake").
 - Working: recompilation of both variants, boot, title/menus, save loading from the dumped
   scratchpad, SD-card island data, 2D UI and dialogue, 3D maps, character models and animation,
@@ -599,7 +614,7 @@ Keep this section current.
   quad `Primitive`s, and never overrides blend/transparency on a `Group`, so lit materials,
   point/line/sprite primitives and those overrides are absent. The game logic runs at its native
   15 fps; higher frame rates are interpolated, and the 2D layer and input still step at 15.
-  Free-look pitch does not move the 2D sky.
+  Cutscenes draw their own flat sky (class `b`), which the 3D sky option does not replace.
 - How it was checked: everything above was verified with screenshots, numeric checks and
   simulated input (keyboard, a fake gamepad, synthetic touch events) in headless Chrome. Not yet
   checked by a person: how the music sounds, how interpolated motion looks, mouse capture and

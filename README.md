@@ -67,6 +67,8 @@ controller); none change the game's rules, and with everything off you get the p
   AI-upscaled texture pack you generate yourself (`tools/ai/textures.py`, needs a ComfyUI server);
   the pack covers the Legends 2 models' textures too.
 - **Cel shading, lighting and shadows** — the original has no lighting at all.
+- **A real sky** — the phone's flat backdrop becomes a dome that turns and tilts with the
+  camera and has a horizon, so looking past the edge of a map shows sea instead of more sky.
 - **Field of view** and **camera distance** sliders, and a **draw distance** setting that makes
   enemies and objects appear from up to four times further away.
 - **Confirming never shoots.** On the phone the OK key also fires the buster; here OK only
@@ -278,6 +280,8 @@ repository: it is all derived from the game.
 - **Textures.** `tools/ai/restyle.py` redraws an area's wall and floor textures in the same
   look and keeps them tileable. Pick "AI redrawn" under Settings > Video > Textures. One area
   is done.
+- **Skies.** `tools/ai/skies.py` makes sharper versions of the four sky panoramas for the 3D
+  sky.
 
 Both need a Tripo API key (paid, about 10 credits per picture and 50 per model) in
 `$TRIPO_API_KEY`, and a Python environment with Playwright; `CLAUDE.md` has the details under

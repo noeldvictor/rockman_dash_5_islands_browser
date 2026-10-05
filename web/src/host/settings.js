@@ -18,6 +18,8 @@ export const DEFAULTS = {
   fov: 60,
   /** factor on how far away the mission draws enemies, objects (the game's is 1) and scenery */
   drawDistance: 1,
+  /** the sky as a dome that turns and tilts with the camera, with a horizon (sky.js) */
+  skyDome: true,
   lighting: false,
   shadows: false,
   /**

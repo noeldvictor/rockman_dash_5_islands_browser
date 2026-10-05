@@ -239,7 +239,7 @@ export async function loadTexturePack(base, which = 'ai') {
     const response = await fetch(`${base}/manifest.json`);
     if (!response.ok) return false;
     const manifest = await response.json();
-    const loaded = { base, textures: manifest.textures ?? {}, models: manifest.models ?? {} };
+    const loaded = { base, textures: manifest.textures ?? {}, models: manifest.models ?? {}, skies: manifest.skies ?? {} };
     if (which === 'redraw') redrawn = loaded;
     else pack = loaded;
   } catch {
@@ -247,6 +247,18 @@ export async function loadTexturePack(base, which = 'ai') {
   }
   if (mode === 'ai' || mode === 'redraw') for (const [t, entry] of entries) apply(t, entry);
   return true;
+}
+
+/**
+ * The HD version of a sky panorama from the redrawn pack (tools/ai/skies.py), by the key
+ * sky.js computes; null if there is none.
+ */
+export async function redrawnSky(key) {
+  const file = redrawn?.skies?.[key];
+  if (!file) return null;
+  const response = await fetch(`${redrawn.base}/${file}`);
+  if (!response.ok) return null;
+  return createImageBitmap(await response.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
 }
 
 /** @param {'sharp'|'smooth'|'hd'|'ai'|'redraw'} value */
