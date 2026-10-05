@@ -44,6 +44,7 @@ for (const file of readdirSync(root).filter((f) => /\.rfc$/i.test(f)).sort()) {
     const b = after.actors[i];
     if (!a.pos) return;
     if (Math.abs(b.pos[0] - a.pos[0] * s) > 1e-3 || Math.abs(b.pos[2] - a.pos[2] * s) > 1e-3 || b.pos[1] !== a.pos[1] || b.kind !== a.kind) problems.push(`actor ${i} moved wrongly`);
+    if (Math.abs(b.sight - a.sight * s) > 1e-3 || Math.abs(b.range - a.range * s) > 1e-3 || b.life !== a.life || b.speed !== a.speed) problems.push(`actor ${i}: sight/range not scaled alone`);
   });
   before.events.forEach((e, i) => {
     const b = after.events[i];

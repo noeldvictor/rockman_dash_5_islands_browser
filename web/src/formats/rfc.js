@@ -127,6 +127,7 @@ export function parseRFC(bytes) {
     a.speed = r.f32();
     a.life = r.i16();
     a.power = r.i16();
+    a.sightOffset = r.pos; // sight, then range: two f32
     a.sight = r.f32();
     a.range = r.f32();
     a.pattern = r.u8();

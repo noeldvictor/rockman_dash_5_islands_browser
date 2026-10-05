@@ -194,19 +194,21 @@ window.fitGlb = async (options) => {
   holder.add(scene);
   holder.matrixAutoUpdate = false;
   let best = null;
-  for (let turn = 0; turn < 4; turn++) {
+  // options.mirror: also try it mirrored (a left-hand part standing in for the right-hand one)
+  for (let turn = 0; turn < (options.mirror ? 8 : 4); turn++) {
+    const flip = turn >= 4 ? -1 : 1;
     const s = source.getSize(new THREE.Vector3());
     if (turn % 2) [s.x, s.z] = [s.z, s.x]; // a quarter turn swaps the footprint
     // the phone model's height exactly; its footprint too, unless that would distort the shape
     const k = size.y / s.y;
     // ... but a flat object (a door panel) gets exactly the phone model's thickness, less a
     // little: it slides into a wall that leaves it no room (see `flat` in mods/remake.js)
-    const thin = Math.min(size.x, size.z) < 0.25 * Math.max(size.x, size.y, size.z) ? (size.x < size.z ? 'x' : 'z') : '';
+    const thin = Math.min(size.x, size.z) < 0.1 * Math.max(size.x, size.y, size.z) ? (size.x < size.z ? 'x' : 'z') : '';
     const fit = (a, b, axis) => (axis === thin
       ? (Math.max(a, size.y * 0.01) * 0.9) / b
       : Math.min(1.3, Math.max(0.77, a / b / k)) * k);
     const matrix = new THREE.Matrix4().makeTranslation(to.x, to.y, to.z)
-      .multiply(new THREE.Matrix4().makeScale(fit(size.x, s.x, 'x'), k, fit(size.z, s.z, 'z')))
+      .multiply(new THREE.Matrix4().makeScale(flip * fit(size.x, s.x, 'x'), k, fit(size.z, s.z, 'z')))
       .multiply(new THREE.Matrix4().makeRotationY((turn * Math.PI) / 2))
       .multiply(new THREE.Matrix4().makeTranslation(-from.x, -from.y, -from.z));
     holder.matrix.copy(matrix);
@@ -215,15 +217,113 @@ window.fitGlb = async (options) => {
     let diff = 0;
     for (let v = 0; v < 3; v++) for (let i = 0; i < got[v].length; i++) diff += Math.abs(got[v][i] - want[v][i]);
     const score = diff / (3 * got[0].length);
-    if (!best || score < best.score) best = { score, turn, matrix: matrix.toArray(), flat: thin !== '' };
+    if (!best || score < best.score) best = { score, turn: turn % 4, mirrored: flip < 0, matrix: matrix.toArray(), flat: thin !== '' };
   }
   // for checking by eye: the phone model and the fitted one from the same two corners
   holder.matrix.fromArray(best.matrix);
   holder.updateMatrixWorld(true);
+  // a phone model made of several rigid pieces: which piece each new vertex moves with
+  const model = parseMBAC(bytes(options.model));
+  best.bones = model.numBones;
+  if (model.numBones > 1) best.skin = skinOf(model, scene);
   const views = { views: [[28, 12], [208, 12]], size: options.size ?? 512 };
   best.pictures = [...shoot(phone, views), ...shoot(holder, views)];
   return best;
 };
+
+/** Squared distance from point p to triangle abc (arrays of 3), after Ericson. */
+function distance2(p, a, b, c) {
+  const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a);
+  const d1 = dot(ab, ap), d2 = dot(ac, ap);
+  let q;
+  if (d1 <= 0 && d2 <= 0) q = a;
+  else {
+    const bp = sub(p, b);
+    const d3 = dot(ab, bp), d4 = dot(ac, bp);
+    if (d3 >= 0 && d4 <= d3) q = b;
+    else {
+      const vc = d1 * d4 - d3 * d2;
+      if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+        const v = d1 / (d1 - d3);
+        q = [a[0] + ab[0] * v, a[1] + ab[1] * v, a[2] + ab[2] * v];
+      } else {
+        const cp = sub(p, c);
+        const d5 = dot(ab, cp), d6 = dot(ac, cp);
+        if (d6 >= 0 && d5 <= d6) q = c;
+        else {
+          const vb = d5 * d2 - d1 * d6;
+          if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+            const w = d2 / (d2 - d6);
+            q = [a[0] + ac[0] * w, a[1] + ac[1] * w, a[2] + ac[2] * w];
+          } else {
+            const va = d3 * d6 - d5 * d4;
+            if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+              const w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+              q = [b[0] + (c[0] - b[0]) * w, b[1] + (c[1] - b[1]) * w, b[2] + (c[2] - b[2]) * w];
+            } else {
+              const denom = 1 / (va + vb + vc);
+              const v = vb * denom, w = vc * denom;
+              q = [a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w];
+            }
+          }
+        }
+      }
+    }
+  }
+  const d = sub(p, q);
+  return dot(d, d);
+}
+
+/**
+ * Which of the phone model's rigid pieces ("bones") each vertex of a fitted remade model
+ * belongs to: the piece whose surface is nearest, and near the border between two pieces a
+ * share of both, so that the new, single skin bends there instead of tearing.
+ * @param {object} model  the parsed phone model (rest pose)
+ * @param {THREE.Object3D} scene  the remade model, its world matrices in phone model space
+ * @returns {{bones: string, weights: string}[]} per mesh, in traverse order: two bone indices
+ *          per vertex and the first one's weight (0..255), base64
+ */
+function skinOf(model, scene) {
+  const P = model.positions;
+  const pieces = new Map(); // bone -> triangles [a, b, c]
+  for (const batch of model.batches) {
+    for (let t = 0; t < batch.numTriangles; t++) {
+      const corner = [0, 1, 2].map((k) => batch.cornerVertex[t * 3 + k]);
+      const bone = model.vertexBone[corner[0]];
+      if (!pieces.has(bone)) pieces.set(bone, []);
+      pieces.get(bone).push(corner.map((i) => [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]]));
+    }
+  }
+  const blend = (model.bounds.max[1] - model.bounds.min[1]) * 0.03; // width of a joint
+  const b64 = (u8) => { let text = ''; for (let i = 0; i < u8.length; i += 0x8000) text += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(text); };
+  const out = [];
+  const v = new THREE.Vector3();
+  scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const position = o.geometry.attributes.position;
+    const bones = new Uint8Array(position.count * 2);
+    const weights = new Uint8Array(position.count);
+    for (let i = 0; i < position.count; i++) {
+      v.fromBufferAttribute(position, i).applyMatrix4(o.matrixWorld);
+      const p = [v.x, v.y, v.z];
+      let first = -1, second = -1, d1 = Infinity, d2 = Infinity;
+      for (const [bone, tris] of pieces) {
+        let d = Infinity;
+        for (const [a, b, c] of tris) d = Math.min(d, distance2(p, a, b, c));
+        d = Math.sqrt(d);
+        if (d < d1) { second = first; d2 = d1; first = bone; d1 = d; } else if (d < d2) { second = bone; d2 = d; }
+      }
+      const share = second < 0 ? 1 : Math.min(1, 0.5 + (d2 - d1) / (2 * blend));
+      bones[i * 2] = first;
+      bones[i * 2 + 1] = second < 0 ? first : second;
+      weights[i] = Math.round(share * 255);
+    }
+    out.push({ bones: b64(bones), weights: b64(weights) });
+  });
+  return out;
+}
 
 window.modelInfo = (options) => {
   const m = parseMBAC(bytes(options.model));

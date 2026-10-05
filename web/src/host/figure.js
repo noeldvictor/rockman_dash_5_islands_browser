@@ -6,6 +6,7 @@ import {
 } from '../formats/mbac.js';
 import { legends2 } from '../mods/legends2.js';
 import { remake } from '../mods/remake.js';
+import { figureScale } from './roomy.js';
 import {
   TYPE, getMaterial, getOutlineMaterial, frameClock, BLEND_NORMAL, BLEND_ALPHA, BLEND_ADD,
 } from './g3d.js';
@@ -56,9 +57,12 @@ class Figure3D {
       ? new THREE.BufferAttribute(b.colors, 3, true) : null));
     // people and enemies, as opposed to doors, crates and effects: cel shading, shadows
     this.character = isCharacter(keyOf(bytes));
-    // optional remade model (mods/remake.js); rigid models only, so far
-    this.remade = remake.ready && model.numBones <= 1 ? remake.find(bytes) : undefined;
+    // experiment (roomy.js): a door or wall piece of a widened area is drawn that much wider
+    this.widenBy = figureScale(keyOf(bytes));
+    // optional remade model (mods/remake.js)
+    this.remade = remake.ready ? remake.find(bytes) : undefined;
     this.remadeInstances = new Map(); // remade model -> its copies, one per draw in a frame
+    this.remadeRest = null; // inverse rest matrix of every bone, for remade models that move in pieces
     // optional Legends 2 model replacement (mods/legends2.js): which player part this is, if any
     this.role = legends2.ready ? legends2.roleOf(bytes) : undefined;
     if (this.role) {
@@ -214,8 +218,10 @@ class Figure3D {
   /** Snapshot the current pose/pattern/material state into meshes for this flush. */
   build() {
     const model = this.model;
+    const table = this.action && this.action.table.actions[this.actionIndex] ? this.action.table : null;
+    poseModel(model, table, this.actionIndex, this.time, this.posed);
     if (this.remade && remake.enabled && this.blendMode === BLEND_NORMAL && this.transparency >= 100) {
-      // drawn whole under the same model matrix; one copy per draw of this figure in a frame
+      // drawn under the same model matrix; one copy per draw of this figure in a frame
       const remade = remake.pick(this.remade, this.textures[0]?.key);
       if (remade) {
         let copies = this.remadeInstances.get(remade);
@@ -223,11 +229,25 @@ class Figure3D {
         const node = copies[this.used] || (copies[this.used] = remake.instance(remade));
         this.used++;
         remake.stats.drawn++;
+        const copy = node.userData.copy;
+        if (copy) {
+          // it moves in pieces: each follows its phone bone, as posed by the phone animation
+          if (!this.remadeRest) {
+            const rest = computeBoneMatrices(model, null, 0, new Float32Array(model.numBones * 12));
+            this.remadeRest = Array.from({ length: model.numBones }, (_, i) => new THREE.Matrix4().set(
+              ...rest.subarray(i * 12, i * 12 + 12), 0, 0, 0, 1).invert());
+            this.poseBones ??= new Float32Array(model.numBones * 12);
+          }
+          const action = table ? table.actions[this.actionIndex] : null;
+          const animated = !!action && action.boneTracks.length > 0;
+          computeBoneMatrices(model, animated ? action.matrices : null,
+            animated ? action.boneTracks.length : 0, this.poseBones);
+          copy.pose(this.poseBones, this.remadeRest);
+          remake.stats.skinned++;
+        }
         return [node];
       }
     }
-    const table = this.action && this.action.table.actions[this.actionIndex] ? this.action.table : null;
-    poseModel(model, table, this.actionIndex, this.time, this.posed);
     const pattern = table ? getActionPattern(table, this.actionIndex, this.time, this.pattern) : this.pattern;
     const instance = this.instances[this.used] || (this.instances[this.used] = this.#createInstance());
     this.used++;

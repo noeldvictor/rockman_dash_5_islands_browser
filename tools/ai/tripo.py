@@ -58,7 +58,7 @@ def upload(path):
 
 def submit(endpoint, **params):
     """Start a task (endpoint like 'generation/image-to-model'); returns its id."""
-    for attempt in range(12):
+    for attempt in range(240):  # up to two hours: several runs may be sharing the few slots
         r = requests.post(f'{BASE}/{endpoint}', headers=_headers(), json=params, timeout=60)
         if r.status_code != 429:
             break

@@ -300,6 +300,8 @@ export class G3D {
     if (!built) return;
     const matrix = new THREE.Matrix4();
     if (m) setMatrix(matrix, m);
+    // experiment (roomy.js): part of a widened area's architecture, stretched like it
+    if (obj.widenBy > 1) matrix.scale(_widen.set(obj.widenBy, 1, obj.widenBy));
     this.touched.add(obj);
     if (obj.type === TYPE.FIGURE && obj.character) {
       const b = obj.model.bounds;
@@ -517,6 +519,7 @@ const _s1 = new THREE.Vector3();
 const _q0 = new THREE.Quaternion();
 const _q1 = new THREE.Quaternion();
 const _mix = new THREE.Matrix4();
+const _widen = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 const _c0 = new THREE.Matrix4();
 const _c1 = new THREE.Matrix4();

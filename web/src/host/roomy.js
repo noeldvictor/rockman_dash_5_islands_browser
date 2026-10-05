@@ -1,77 +1,114 @@
 // Experiment: roomier areas ("Roomier areas" under Settings > Extras).
 //
-// An area is widened by stretching it horizontally (x and z) by one factor about the origin,
-// while everything in it keeps its size: the player, enemies and objects stand further apart
-// and the corridors between walls get wider. Heights do not change. Three files describe an
-// area and all three have to agree, so each is changed as the game reads it; nothing is
-// written anywhere:
+// A mission area is widened by stretching it horizontally (x and z) by one factor about the
+// origin, while what stands in it keeps its size: the player, enemies and loose objects are
+// further apart and the corridors between walls get wider (the game's corridors are one
+// 6-unit block wide). Heights do not change. Everything is done as the game reads its files;
+// nothing is written anywhere:
 //
-//   <area>.d4d   what is drawn: the host scales the vertex positions itself (group.js);
 //   X<area>.rfc  what the game collides with and where it puts things (formats/rfc.js):
-//                rewritten here, see widenRFC();
-//   Xe*.rde      cutscenes staged in the area (formats/rde.js): every position key is scaled,
-//                in place.
+//                rewritten, see widenRFC();
+//   <area>.d4d   what is drawn: the scene just built from it has its vertices scaled;
+//   o*.roc       the collision shapes of the objects built into the architecture (doors, wall
+//                and floor pieces, lifts, laser gates: FITTED) are scaled the same way, and
+//                those objects are drawn that much wider (figure.js, g3d.js), so that a door
+//                still closes its doorway and a floor tile still meets the next.
+//
+// How it knows what is what. A mission reads its scene, builds it, then reads its .rfc; a
+// cutscene reads its script (.rde), then the scenes and models it shows. So the scene that is
+// widened is the last one built when a mission's .rfc comes by, and the models and collision
+// shapes that are widened are those loaded after a widened .rfc and before the next script.
+// Cutscenes are left exactly as they are: they are staged shot by shot in the original space.
 //
 // The collision is a fixed grid of 12-unit cells, 32 a side, with each face filed under the
 // one cell it lies in, so a stretched face has to be cut along the grid lines again. That, and
-// the limit of 63 faces in a cell, is why an area can only grow so far (widenRFC throws).
+// the limit of 63 faces in a cell, is why an area can only grow so far (widenRFC throws; the
+// area is then left as it is).
 //
-// Not handled, which is why only the listed test areas are widened: doors (a doorway is two
-// fixed-size panels; stretched apart they leave a gap), distances the game has as constants
-// (jump length, trigger reach, enemy attack ranges, lifts, pistons), and cutscenes that show a
-// widened and an unwidened area in one script.
+// Not handled: distances the game has as constants. Jumps and trigger reach stay as they are
+// while gaps and doorways grow, conveyors keep their speed, and so on. Untested area by area.
 
 import { parseRFC, CELL, GRID, CELL_FACES } from '../formats/rfc.js';
-import { parseRDE, rdePoints } from '../formats/rde.js';
+
+/** Objects that are part of the architecture: o07 door, o11 floor tile, o16 lift, o17/o18 wall pieces, o19 laser gate. */
+const FITTED = /^o(07|11|16|17|18|19)\.(mba|mbac|roc)$/i;
 
 export const roomy = {
   /** Horizontal factor; 1 = off. */
   scale: 1,
-  /** The areas it applies to: ones without doors, so far. */
-  areas: new Set(['a1_5']),
   /** What the last widened area came to, for diagnostics. */
   stats: null,
-  /** which scene file the game read last: the one it builds next */
-  lastScene: '',
+  /** The scene file the game read last, and the scene it built last: { area, group }. */
+  lastFile: '',
+  lastScene: null,
+  /** The factor of what is being loaded now: the widened mission's, else 1. */
+  context: 1,
+  /** Content keys of the FITTED models (set by the page from the game's data files). */
+  fittedKeys: new Set(),
 };
+let cached = null; // the last .rfc widened: { name, scale, bytes }
 
 const areaOf = (name) => name.replace(/^.*\//, '').replace(/^X/, '').replace(/\.[a-z0-9]+$/i, '');
+
+/** Whether a data file is one of the models built into the architecture. */
+export const isFitted = (name) => FITTED.test(name.replace(/^.*\//, ''));
 
 /** The game read `name` from its data: note it, and return changed bytes or null. */
 export function onRead(name, bytes) {
   const file = name.replace(/^.*\//, '');
   if (/\.d4d$/i.test(file)) {
-    roomy.lastScene = areaOf(file);
+    roomy.lastFile = areaOf(file);
     return null;
   }
-  if (roomy.scale === 1) return null;
-  try {
-    if (/\.rfc$/i.test(file)) return roomy.areas.has(areaOf(file)) ? widenRFC(bytes, roomy.scale) : null;
-    if (/\.rde$/i.test(file)) {
-      // a script staged in a widened area. (One that also shows other areas comes out wrong
-      // in those shots: its keys do not say which scene they belong to.)
-      const rde = parseRDE(bytes);
-      const widened = rde.assets.some((a) => a.kind === 'scene' && roomy.areas.has(areaOf(a.name)));
-      return widened ? widenRDE(bytes, rde, roomy.scale) : null;
-    }
-  } catch (e) {
-    console.warn('[roomy] left', file, 'as it is:', e.message);
+  if (/\.rde$/i.test(file)) {
+    roomy.context = 1; // a cutscene: what it loads stays as it is
+    return null;
   }
+  if (/\.rfc$/i.test(file)) {
+    roomy.context = 1;
+    if (roomy.scale === 1) return null;
+    try {
+      if (!cached || cached.name !== file || cached.scale !== roomy.scale) {
+        cached = { name: file, scale: roomy.scale, bytes: widenRFC(bytes, roomy.scale) };
+      }
+    } catch (e) {
+      console.warn('[roomy] left', file, 'as it is:', e.message);
+      cached = null;
+      return null;
+    }
+    // the scene of this mission was built just before
+    const scene = roomy.lastScene;
+    if (scene && scene.area === areaOf(file)) scene.group.widen(roomy.scale);
+    roomy.context = roomy.scale;
+    return cached.bytes;
+  }
+  if (/\.roc$/i.test(file) && roomy.context !== 1 && FITTED.test(file)) return widenROC(bytes, roomy.context);
   return null;
 }
 
-/** The factor for the scene the game is building now (group.js). */
-export function sceneScale() {
-  return roomy.scale !== 1 && roomy.areas.has(roomy.lastScene) ? roomy.scale : 1;
+/** group.js: a scene has been built (from the scene file read last). */
+export function sceneBuilt(group) {
+  roomy.lastScene = { area: roomy.lastFile, group };
 }
 
-function widenRDE(bytes, rde, s) {
+/** figure.js: how much wider a model being created now is to be drawn (1 = as it is). */
+export function figureScale(key) {
+  return roomy.context !== 1 && roomy.fittedKeys.has(key) ? roomy.context : 1;
+}
+
+/** An object's collision shape (.roc), stretched like the architecture it is part of. */
+function widenROC(bytes, s) {
   const out = bytes.slice();
   const view = new DataView(out.buffer);
-  for (const point of rdePoints(rde)) {
-    view.setFloat32(point.offset, point.v[0] * s, true);
-    view.setFloat32(point.offset + 8, point.v[2] * s, true);
+  const count = view.getUint16(0, true);
+  // the vertices, then the centre of the bounding sphere
+  for (let i = 0; i <= count; i++) {
+    const o = 2 + i * 12;
+    view.setFloat32(o, view.getFloat32(o, true) * s, true);
+    view.setFloat32(o + 8, view.getFloat32(o + 8, true) * s, true);
   }
+  const radius = 2 + (count + 1) * 12;
+  view.setFloat32(radius, view.getFloat32(radius, true) * s, true);
   return out;
 }
 
@@ -213,6 +250,12 @@ export function widenRFC(bytes, s) {
     const at2 = thing.posOffset - tailStart + head;
     view.setFloat32(at2, thing.pos[0] * s, true);
     view.setFloat32(at2 + 8, thing.pos[2] * s, true);
+  }
+  // how far an enemy sees and roams, and how far a piston pushes, grow with the room
+  for (const actor of rfc.actors) {
+    const at2 = actor.sightOffset - tailStart + head;
+    view.setFloat32(at2, actor.sight * s, true);
+    view.setFloat32(at2 + 4, actor.range * s, true);
   }
   roomy.stats = { scale: s, cells, mostInCell: most, faces: [rfc.faces.length, tris.length + quads.length], bytes: [bytes.length, out.length] };
   return out;

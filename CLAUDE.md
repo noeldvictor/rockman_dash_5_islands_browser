@@ -134,7 +134,7 @@ on its own. To read the game's logic, decompile the jar with CFR (`java -jar cfr
 original/localized/RockmanDASH.jar --outputdir build/decomp`); class and method names are
 obfuscated (`a`…`bt`).
 
-## AI model remake (in progress: rigid props are in the game)
+## AI model remake (in progress: props and the first enemy are in the game)
 
 The user wants the game's models remade with Tripo (tripo3d.ai) and approved the quality of a
 test batch on 2026-10-05. Scope: everything, in the order props and objects, enemies and bosses,
@@ -173,11 +173,25 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
   is what hides a door once it has slid open into the plane of its wall. Settings > Extras >
   Remade models switches it. The folder
   is git-ignored like every derived asset; `--full` packages include it.
-- Not done: models that bend (enemies, bosses, characters, the snowman and the Flutter) need
-  the remade mesh cut into the phone model's rigid pieces or rigged (Tripo has auto-rig for
-  bipeds, 25 credits, and a `t_pose` picture template) and driven bone by bone like the
-  Legends 2 characters. Not worth remaking: flat textured pieces (walls `o17`/`o18`, rock,
-  ice, lava, the laser gate, the billboard tree), which the AI texture pack already covers.
+- Models that move in pieces (every enemy and boss, and props with a moving part): the phone
+  model is rigid pieces, each following one bone. At install time `skinOf` (`modelview.js`)
+  gives every vertex of the remade, single-skin model the piece whose surface is nearest in
+  the rest pose (two pieces near a joint, blended over 3% of the height), stored in the
+  manifest as `skin`. In the game `remake.js` builds a `SkinnedMesh` per drawn copy
+  (`SkinnedCopy`, detached bind mode) whose bones are set to `pose * rest^-1` of the phone
+  bones (`figure.js` computes them with `computeBoneMatrices`), with the previous frame's pose
+  kept for interpolation; such models are cel-shaded and outlined like the phone's characters.
+- One model in several colours: the installer recolours the remade picture for each further
+  texture of the phone model (`recolour`: per hue, the turn and the change of saturation and
+  value between the two phone textures, applied in proportion to a texel's saturation), as
+  `<name>@<texture>.jpg` beside the `.glb` (`map` in the manifest). Mirrored twins (a boss's
+  left and right arm) share one model: `install_remake.py b02_2=b02_1`, or a file
+  `build/ai/models/b02_2/skip` containing `=b02_1`, which also keeps `remake.py` from making
+  it; an empty `skip` file just excludes a model.
+- Not remade: the main characters (the Legends 2 models stand in for them and have
+  expressions; a Tripo model would have one fixed face) and the player's separate body parts.
+  Not worth remaking: flat textured pieces (walls `o17`/`o18`, the laser gate, floor tiles,
+  the lava jet), which the texture packs cover.
 - API: base `https://openapi.tripo3d.ai/v3`, `Authorization: Bearer <key>`, asynchronous tasks
   polled through `/tasks/<id>`. The key is in `build/ai/tripo.key` (git-ignored) or
   `$TRIPO_API_KEY`; it must never reach a tracked file. Docs are fetched with the
@@ -198,19 +212,26 @@ area, `a1_5` ("Valley Road", the approach to the first ruin on island 1):
   say that plain surfaces stay plain: the gravel first came back as carved paving. The cheaper
   models were tried and rejected: `banana` returns the picture unchanged, `seedream_v5` draws
   harsh pixel art. The whole game is about 130 textures.
-- **Roomier areas (works for the test area).** `web/src/host/roomy.js`, Settings > Extras >
-  "Roomier areas (experiment)" or `?roomy=1.5`: the area is stretched in x and z while
-  everything in it keeps its size. Done as the game reads its files, nothing is written: the
-  scene's vertices are scaled in `group.js`; the room data `X<area>.rfc` is rewritten
-  (`widenRFC`: collision faces cut again along the 12-unit grid, placements and triggers
-  moved); cutscene scripts staged there get their position keys scaled. In the test the player
-  walks the widened ground, enemies and props sit where they should and the map screen shows
-  the wider area. `node tools/rfc/widen_check.mjs 1.5` runs the rewrite over every area's
-  room data and checks it (34-35 of 35 fit, depending on the factor). Only `a1_5` is switched
-  on (`roomy.areas`) because it has no doors. What stands in the way elsewhere: a doorway is
-  two fixed-size panels (361 of them) that would be pulled apart; jumps get longer while the
-  jump does not; conveyors, pistons and lifts have fixed reach; trigger and attack distances
-  are constants in code; and 13 cutscenes show several areas in one script.
+- **Roomier areas (experiment, every area).** `web/src/host/roomy.js`, Settings > Extras >
+  "Roomier areas (experiment)" or `?roomy=1.5`: a mission area is stretched in x and z while
+  what stands in it keeps its size (the game's corridors are one 6-unit block wide). Done as
+  the game reads its files, nothing is written. The room data `X<area>.rfc` is rewritten
+  (`widenRFC`: collision faces cut again along the 12-unit grid; placements and triggers moved;
+  enemies' sight and range, which is also a piston's stroke, scaled). A mission reads its
+  scene, builds it, then reads its `.rfc`, so the scene that gets widened is the one built
+  last when the `.rfc` comes by (`Group3D.widen`). The objects built into the architecture
+  (`FITTED`: door `o07`, floor tile `o11`, lift `o16`, wall pieces `o17`/`o18`, laser gate
+  `o19`) are drawn wider by the same factor (`Figure3D.widenBy`) and their collision shapes
+  (`.roc`) scaled, when they are loaded after a widened `.rfc`; so a door still closes its
+  doorway. Cutscenes are left alone: they read their script (`.rde`) first, which ends the
+  widened context, and they play in the original space. Checked in the game on `a1_5` (no
+  doors) and `a5_1` (doors, two rooms): collision matches what is drawn, doors fill their
+  doorways and open, the map screen shows the wider layout. `node tools/rfc/widen_check.mjs
+  1.5` runs the rewrite over every area's room data (34-35 of 35 fit, depending on the
+  factor; one that does not is left as it is). Not handled, and untested area by area:
+  constants in the game's code. Jumps stay the same length while gaps grow, a door's trigger
+  reaches 3 units while a doorway becomes up to 7.5 wide, conveyors keep their speed, lifts
+  their travel.
 - **Geometry detail (tried, rejected).** Giving walls real depth by cutting every face up and
   displacing it by its texture's brightness: the surface only got noisy and faceted, and one
   small area went from 700 to 96,000 triangles. Removed. Better geometry needs real modelling,

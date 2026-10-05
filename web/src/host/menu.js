@@ -358,7 +358,7 @@ export class SettingsMenu {
         : el('p', { class: 'note' }, 'Legends 2 character models are not installed (see tools/mml2/).'),
       this.#select('roomy', 'Roomier areas (experiment)', [
         [1, 'Off'], [1.25, '1.25× wider'], [1.5, '1.5× wider'],
-      ], 'Test only: the path to the first ruin on island 1. Takes effect when the area loads'),
+      ], 'Every area gets wider corridors and rooms; doors and wall pieces widen with them. Untested area by area: jumps and timing were made for the original size. Takes effect when an area loads'),
       ...(this.available.remake
         ? [this.#check('remake', 'Remade models', 'Draw the AI-remade models that are installed in place of the phone models')]
         : []),

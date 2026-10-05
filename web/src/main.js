@@ -16,7 +16,7 @@ import { keyOf } from './host/contentkey.js';
 import { setupTouch } from './host/touch.js';
 import { legends2 } from './mods/legends2.js';
 import { remake } from './mods/remake.js';
-import { roomy } from './host/roomy.js';
+import { roomy, isFitted } from './host/roomy.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -54,6 +54,8 @@ async function start(variant) {
   // name, o* = doors, crates and other objects, ef_* = effects, flater = the Flutter airship.
   for (const [name, bytes] of resources.files(/\.mbac?$/i)) {
     if (/^(o\d|ef_|flater)/i.test(name.replace(/^.*\//, ''))) markScenery(keyOf(bytes));
+    // doors, wall and floor pieces: widened with the area by the "roomier areas" experiment
+    if (isFitted(name)) roomy.fittedKeys.add(keyOf(bytes));
   }
 
   const settings = new Settings();

@@ -102,6 +102,8 @@ def restyle(name, args, manifest):
     hole = indices == 0
     keyed = bool(hole.any()) and not hole.all()
     key = f'{rgb.shape[1]}x{rgb.shape[0]}:{zlib.crc32(rgb.tobytes()) & 0xffffffff}'
+    if key in manifest['textures'] and not args.force:
+        return  # this picture is done (the same one may go by several names)
     folder = WORK / name
     folder.mkdir(parents=True, exist_ok=True)
     # where the colour key shows through, continue the colours around it
@@ -133,10 +135,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('names', nargs='*')
     ap.add_argument('--area')
+    ap.add_argument('--maps', action='store_true', help='every map texture of the game (a<island>_<n>.bmp)')
     ap.add_argument('--image-model', default='banana2')
     ap.add_argument('--force', action='store_true')
     args = ap.parse_args()
     names = list(args.names) + (area_textures(args.area) if args.area else [])
+    if args.maps:
+        import re
+        found = {p.stem for p in (ROOT / 'build' / 'assets').rglob('a?_*.bmp') if re.fullmatch(r'a\d_\d+', p.stem)}
+        names += sorted(found, key=lambda n: (n[:2], int(n[3:])))
     if not names:
         sys.exit(__doc__)
     OUT.mkdir(parents=True, exist_ok=True)

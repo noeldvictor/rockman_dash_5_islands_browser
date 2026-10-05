@@ -9,7 +9,7 @@ import { TYPE } from './g3d.js';
 import { MODEL_FLIP } from './conventions.js';
 import { registerTexture } from './texfilter.js';
 import { makeLit } from './lighting.js';
-import { sceneScale } from './roomy.js';
+import { sceneBuilt } from './roomy.js';
 
 function imageTexture(image, opaque) {
   const { width, height, palette, pixels, bytesPerPixel, isPaletted } = image;
@@ -55,15 +55,7 @@ class Group3D {
     for (const w of scene.warnings) console.warn('[d4d]', w);
 
     const local = new THREE.Matrix4().copy(MODEL_FLIP);
-    // experiment (roomy.js): the area stretched horizontally; its collision is stretched alike
-    const wide = sceneScale();
     for (const mesh of scene.meshes) {
-      if (wide !== 1) {
-        for (let i = 0; i < mesh.positions.length; i += 3) {
-          mesh.positions[i] *= wide;
-          mesh.positions[i + 2] *= wide;
-        }
-      }
       const position = new THREE.BufferAttribute(mesh.positions, 3);
       const uv = mesh.uvs ? new THREE.BufferAttribute(mesh.uvs, 2) : null;
       const color = mesh.colors
@@ -112,6 +104,32 @@ class Group3D {
         node.userData.local = local;
         this.meshes.push(node);
       }
+    }
+    sceneBuilt(this); // roomy.js may widen it, if it turns out to be a mission's
+  }
+
+  /**
+   * Experiment (roomy.js): stretch the scene horizontally; its collision is stretched alike.
+   * Called once, when this turns out to be the scene of a mission that is being widened.
+   */
+  widen(s) {
+    if (this.widened || !this.scene) return;
+    this.widened = true;
+    const done = new Set();
+    for (const node of this.meshes) {
+      const g = node.geometry;
+      const position = g.attributes.position;
+      if (!done.has(position)) {
+        done.add(position);
+        const a = position.array;
+        for (let i = 0; i < a.length; i += 3) {
+          a[i] *= s;
+          a[i + 2] *= s;
+        }
+        position.needsUpdate = true;
+      }
+      g.boundingSphere = null; // shadows cast rays at the ground
+      g.boundingBox = null;
     }
   }
 

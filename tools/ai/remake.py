@@ -18,6 +18,9 @@ Per model, in build/ai/models/<model>/ (git-ignored, never committed: derived fr
   compare.png      side by side: phone model, the redraws, the new model from two sides
   tasks.json       the Tripo task of each step and what it cost
 
+A model with a file called `skip` in its folder is left alone (a part that another model's
+remake stands in for, see install_remake.py, or one judged not worth it).
+
 Only what a picture shows is reliable, so at least the front and the back are given. Steps whose
 output exists are skipped, and a task that was paid for is fetched again rather than started
 twice, so a run can be repeated or continued. Costs credits: about 10 per picture, 50 per model.
@@ -62,7 +65,10 @@ def run(folder, step, start, force=False):
     if step in log and not force:
         task = tripo.wait(log[step]['task_id'], quiet=True)
     else:
-        task = tripo.wait(start())
+        task_id = start()
+        # noted at once: if this run is stopped while waiting, the next one picks the task up
+        record(folder, step, {'task_id': task_id})
+        task = tripo.wait(task_id)
     record(folder, step, task)
     return task
 
@@ -80,6 +86,9 @@ def url_of(output, *names):
 
 def remake(name, args):
     folder = os.path.join(OUT, name)
+    if os.path.exists(os.path.join(folder, 'skip')):
+        print(f'{name}: marked not to be remade (build/ai/models/{name}/skip)')
+        return
     sides = args.views.split(',')
     phone = {s: os.path.join(folder, f'phone_view_{s}.png') for s in sides}
     if args.force or not all(os.path.exists(p) for p in phone.values()) or not os.path.exists(os.path.join(folder, 'phone_hero.png')):
