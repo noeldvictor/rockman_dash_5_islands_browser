@@ -10,6 +10,11 @@
 // phone model may have several remade ones, each for one texture file; the figure passes the
 // texture it is drawn with.
 //
+// Flat panels (`flat` in the manifest: the doors) are drawn inside out, far side only. That is
+// how the phone's door panel is drawn, and what hides it once it has slid open: a door stands
+// in the plane of its wall, so the half of an open panel nearer the viewer would be in front
+// of the wall, while its far side is behind the wall whichever room you stand in.
+//
 // Only rigid models so far: a figure whose phone model has a single bone is drawn as the remade
 // model under the same model matrix (figure.js asks instance()). Models that bend follow the
 // phone animation bone by bone and are not handled here yet.
@@ -64,7 +69,7 @@ export class Remake {
               mat.map.anisotropy = 8;
             }
             // the game is unlit; the "lighting" option shades scenery through makeLit
-            return makeLit(new THREE.MeshBasicMaterial({ map: mat.map, side: THREE.DoubleSide }));
+            return makeLit(new THREE.MeshBasicMaterial({ map: mat.map, side: info.flat ? THREE.BackSide : THREE.DoubleSide }));
           };
           o.material = Array.isArray(o.material) ? o.material.map(convert) : convert(o.material);
         });

@@ -176,6 +176,11 @@ export class G2D {
   fillRect(x, y, w, h) {
     this.ctx.fillStyle = this.color;
     this.ctx.fillRect(x + this.ox, y + this.oy, w, h);
+    // the whole phone screen painted over: this frame owes nothing to the one before (screen.js)
+    if (this.screen && x + this.ox <= 0 && y + this.oy <= 0 && x + this.ox + w >= 240 && y + this.oy + h >= 240) {
+      const c = this.clip;
+      if (!c || (c[0] <= 0 && c[1] <= 0 && c[0] + c[2] >= 240 && c[1] + c[3] >= 240)) this.screen.layer.full = true;
+    }
     this.#touch();
   }
 

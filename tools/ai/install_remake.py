@@ -110,6 +110,8 @@ def main():
             check.save(os.path.join(SRC, name, 'fit.png'))
             open(os.path.join(DST, f'{name}.glb'), 'wb').write(small)
             entry = {'url': f'{name}.glb', 'fit': fit['matrix']}
+            if fit.get('flat'):
+                entry['flat'] = True  # a panel: drawn like the phone's, see mods/remake.js
             if variant:
                 entry['texture'] = os.path.basename(files[0])  # this model is for that texture only
             entries = [e for e in manifest['models'].get(phone, []) if e['url'] != entry['url']]

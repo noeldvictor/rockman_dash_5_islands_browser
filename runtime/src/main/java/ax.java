@@ -164,13 +164,31 @@ extends s {
     private static bl portProbe;
     private static as portFrom;
     private static as portTo;
-    /** Radius of the sphere swept from the player to the camera, as the game uses (20.12). */
-    private static final long PORT_PROBE_RADIUS = 3072L;
+    /** Radius of the sphere swept from the player to the camera (20.12); the game uses 0.75. */
+    private static final long PORT_PROBE_RADIUS = 4096L;
+
+    /** The player's heading in degrees (atan2 of the forward vector's x and z), from Mods. */
+    public static float portYaw;
+    // The game's follow camera sits 7 units behind and 0.86 above the pivot, looking 7 degrees down.
+    private static final float PORT_BASE_DIST = 7.0527f;
+    private static final double PORT_BASE_ELEV = Math.toRadians(7.0);
+    /** How fast the camera moves back out after a wall pushed it in, units per game frame. */
+    private static final float PORT_EASE_OUT = 0.6f;
+    private static float portDist = -1.0f;
+    private static float portLastX;
+    private static float portLastY;
+    private static float portLastZ;
 
     /**
-     * port: free-look. Swings the gameplay camera around the player by the host's yaw/pitch
-     * offsets, keeping the distance the game chose (it pulls the camera in near walls). The game
-     * rebuilds G from the player before every call, so the offsets never accumulate.
+     * port: free-look. While the host holds yaw/pitch offsets (or another camera distance), the
+     * gameplay camera is placed from scratch: around the pivot above the player, at the game's
+     * follow distance, turned by the offsets from the player's heading, and pulled in where a
+     * wall is in the way (a sphere swept from the pivot with the game's own map collision).
+     *
+     * It does not start from where the game put its camera. The game shortens and tilts its
+     * camera for walls behind the player; with the camera swung elsewhere, and the player
+     * turning at once under direct movement, that made the distance and tilt jump from frame to
+     * frame. After a wall, the camera moves back out gradually instead of snapping.
      */
     private void portFreeLook() {
         if (portCamera != this) {
@@ -180,19 +198,13 @@ extends s {
         float dPitch = Host.cameraPitch();
         float dScale = Host.cameraDistance();
         if (dYaw == 0.0f && dPitch == 0.0f && dScale == 1.0f) {
+            portDist = -1.0f; // the game's own camera, untouched
+            Host.cameraPivot(0.0f);
             return;
         }
-        float vx = this.G.get(3) - portPivotX;
-        float vy = this.G.get(7) - portPivotY;
-        float vz = this.G.get(11) - portPivotZ;
-        float dist = (float)Math.sqrt(vx * vx + vy * vy + vz * vz);
-        if (dist < 0.5f) {
-            return;
-        }
-        // heading and elevation of the line from the camera to the pivot
-        double yaw = Math.atan2(-vx, -vz) + Math.toRadians(dYaw);
-        double elev = Math.asin(Math.max(-1.0f, Math.min(1.0f, vy / dist))) + Math.toRadians(dPitch);
-        elev = Math.max(Math.toRadians(-35.0), Math.min(Math.toRadians(80.0), elev));
+        double yaw = Math.toRadians(portYaw + dYaw);
+        double elev = PORT_BASE_ELEV + Math.toRadians(dPitch);
+        elev = Math.max(Math.toRadians(-35.0), Math.min(Math.toRadians(70.0), elev));
         float nfx = (float)(Math.sin(yaw) * Math.cos(elev));
         float nfy = (float)(-Math.sin(elev));
         float nfz = (float)(Math.cos(yaw) * Math.cos(elev));
@@ -214,20 +226,17 @@ extends s {
         this.G.set(2, nfx);
         this.G.set(6, nfy);
         this.G.set(10, nfz);
-        dist *= dScale; // camera distance option; the sweep below still stops it at walls
-        float cx = portPivotX - nfx * dist;
-        float cy = portPivotY - nfy * dist;
-        float cz = portPivotZ - nfz * dist;
+        float want = PORT_BASE_DIST * dScale;
+        float allowed = want;
         if (portMap != null) {
-            // sweep a small sphere from the player to the camera with the game's own map
-            // collision and stop at the first wall, like the game does for its follow camera
             if (portProbe == null) {
                 portProbe = new bl();
                 portFrom = new as();
                 portTo = new as();
             }
             portFrom.a((long)(portPivotX * 4096.0f), (long)(portPivotY * 4096.0f), (long)(portPivotZ * 4096.0f));
-            portTo.a((long)(cx * 4096.0f), (long)(cy * 4096.0f), (long)(cz * 4096.0f));
+            portTo.a((long)((portPivotX - nfx * want) * 4096.0f), (long)((portPivotY - nfy * want) * 4096.0f),
+                    (long)((portPivotZ - nfz * want) * 4096.0f));
             portProbe.a(portFrom);
             portProbe.a(PORT_PROBE_RADIUS);
             portProbe.b(portTo);
@@ -235,15 +244,27 @@ extends s {
             long fb = portMap.f.b;
             long fc = portMap.f.c;
             if (portMap.a(portProbe)) {
-                cx = portPivotX + (float)portMap.f.a / 4096.0f;
-                cy = portPivotY + (float)portMap.f.b / 4096.0f;
-                cz = portPivotZ + (float)portMap.f.c / 4096.0f;
+                float hx = (float)portMap.f.a / 4096.0f;
+                float hy = (float)portMap.f.b / 4096.0f;
+                float hz = (float)portMap.f.c / 4096.0f;
+                allowed = Math.min(want, (float)Math.sqrt(hx * hx + hy * hy + hz * hz));
             }
             portMap.f.a(fa, fb, fc); // leave the map's result register as the game left it
         }
-        this.G.set(3, cx);
-        this.G.set(7, cy);
-        this.G.set(11, cz);
+        // in at once (never inside a wall), out gradually; a jump of the pivot is a new place
+        float moved = Math.abs(portPivotX - portLastX) + Math.abs(portPivotY - portLastY) + Math.abs(portPivotZ - portLastZ);
+        if (portDist < 0.0f || moved > 6.0f || allowed < portDist) {
+            portDist = allowed;
+        } else {
+            portDist = Math.min(allowed, portDist + PORT_EASE_OUT);
+        }
+        portLastX = portPivotX;
+        portLastY = portPivotY;
+        portLastZ = portPivotZ;
+        Host.cameraPivot(portDist);
+        this.G.set(3, portPivotX - nfx * portDist);
+        this.G.set(7, portPivotY - nfy * portDist);
+        this.G.set(11, portPivotZ - nfz * portDist);
     }
 
     public final void b() {

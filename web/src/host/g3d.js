@@ -238,6 +238,7 @@ export class Primitive3D {
 // near and far plane of the mission's 3D view: setPerspectiveView(1, 300, 60) in bp
 const MISSION_NEAR = 1;
 const MISSION_FAR = 300;
+const MISSION_NEAR_USED = 0.25;
 
 export class G3D {
   /** @param {import('./screen.js').Screen} screen */
@@ -316,13 +317,15 @@ export class G3D {
   #projection() {
     const p = this.projection;
     const [x, y, w, h] = this.clip;
-    if ((this.fovScale === 1 && this.drawDistance === 1) || p.kind !== 'perspective'
-      || !(x <= 0 && y <= 0 && w >= 240 && h >= 240)) return p;
+    if (p.kind !== 'perspective' || !(x <= 0 && y <= 0 && w >= 240 && h >= 240)) return p;
     // Only the mission's own view, which is the one projection the game sets up with these
     // planes (bp). Cutscenes and menus keep the framing they were made for: they park models
     // just outside it, and place characters over 2D pictures.
     if (p.near !== MISSION_NEAR || p.far !== MISSION_FAR) return p;
-    return { ...p, angle: Math.min(150, p.angle * this.fovScale), far: p.far * this.drawDistance };
+    // The near plane is brought in: at the game's 1 unit, a wide picture (and more so a wider
+    // field of view) reaches 2 units sideways at that plane and cuts open any wall the camera
+    // stands next to. The depth buffer has precision to spare for it.
+    return { ...p, near: MISSION_NEAR_USED, angle: Math.min(150, p.angle * this.fovScale), far: p.far * this.drawDistance };
   }
 
   /** Full-screen 3D fills the whole (possibly wide) canvas; inset views keep the 240 square. */
@@ -407,6 +410,10 @@ export class G3D {
       projection: this.#projection(),
       view: this.view.clone(),
       viewBefore: null, // set by link()
+      // the free-look camera orbits a point this far in front of it (0 = no such point)
+      pivot: wide && this.projection.near === MISSION_NEAR && this.projection.far === MISSION_FAR
+        ? (globalThis.DOJA?.camera?.pivotDistance ?? 0) : 0,
+      pivotBefore: 0, // set by link()
       objects,
       matrices,
       before,
@@ -440,6 +447,7 @@ export class G3D {
         || a.clip.join() !== b.clip.join()) return false;
       if (cameraCut(a.view, b.view)) return false;
       b.viewBefore = a.view.equals(b.view) ? null : a.view;
+      b.pivotBefore = a.pivot;
       const [x, y, w, h] = b.clip;
       if (x <= 0 && y <= 0 && w >= 240 && h >= 240) full = true;
     }
@@ -463,7 +471,8 @@ export class G3D {
     r.setScissorTest(true);
     r.clearDepth();
     const moving = t < 1;
-    const view = moving && step.viewBefore ? mixView(step.viewBefore, step.view, t) : step.view;
+    const view = moving && step.viewBefore
+      ? mixView(step.viewBefore, step.view, t, step.pivotBefore, step.pivot) : step.view;
     updateDraw(view, moving ? t : 1, step.wide ? screen.viewWidth : 240, 240);
     this.#updateCamera(step.projection, view, step.wide ? screen.aspect : 1);
     this.scene.children.length = 0;
@@ -495,6 +504,7 @@ const _s1 = new THREE.Vector3();
 const _q0 = new THREE.Quaternion();
 const _q1 = new THREE.Quaternion();
 const _mix = new THREE.Matrix4();
+const _fwd = new THREE.Vector3();
 const _c0 = new THREE.Matrix4();
 const _c1 = new THREE.Matrix4();
 
@@ -526,10 +536,23 @@ function mixMatrix(a, b, t) {
   return _mix.compose(_p0.lerp(_p1, t), _q0.slerp(_q1, t), _s0.lerp(_s1, t));
 }
 
-/** View matrix part of the way between two views: the camera itself is moved and turned. */
-function mixView(a, b, t) {
+/**
+ * View matrix part of the way between two views: the camera itself is moved and turned.
+ * When it orbits a point (`da`, `db` > 0: its distance to that point in each view), the point
+ * is moved and the camera swung around it, so that going round a corner it does not take the
+ * straight line through the wall.
+ */
+function mixView(a, b, t, da = 0, db = 0) {
   _c0.copy(a).invert().decompose(_p0, _q0, _s0);
   _c1.copy(b).invert().decompose(_p1, _q1, _s1);
+  if (da > 0 && db > 0) {
+    // view space looks down +z: the point is that far along the camera's z axis
+    _p0.add(_fwd.set(0, 0, da).applyQuaternion(_q0));
+    _p1.add(_fwd.set(0, 0, db).applyQuaternion(_q1));
+    _q0.slerp(_q1, t);
+    _p0.lerp(_p1, t).sub(_fwd.set(0, 0, da + (db - da) * t).applyQuaternion(_q0));
+    return _c0.compose(_p0, _q0, _s0.lerp(_s1, t)).invert();
+  }
   return _c0.compose(_p0.lerp(_p1, t), _q0.slerp(_q1, t), _s0.lerp(_s1, t)).invert();
 }
 

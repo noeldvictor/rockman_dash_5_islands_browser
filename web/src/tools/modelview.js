@@ -199,9 +199,14 @@ window.fitGlb = async (options) => {
     if (turn % 2) [s.x, s.z] = [s.z, s.x]; // a quarter turn swaps the footprint
     // the phone model's height exactly; its footprint too, unless that would distort the shape
     const k = size.y / s.y;
-    const fit = (a, b) => Math.min(1.3, Math.max(0.77, a / b / k)) * k;
+    // ... but a flat object (a door panel) gets exactly the phone model's thickness, less a
+    // little: it slides into a wall that leaves it no room (see `flat` in mods/remake.js)
+    const thin = Math.min(size.x, size.z) < 0.25 * Math.max(size.x, size.y, size.z) ? (size.x < size.z ? 'x' : 'z') : '';
+    const fit = (a, b, axis) => (axis === thin
+      ? (Math.max(a, size.y * 0.01) * 0.9) / b
+      : Math.min(1.3, Math.max(0.77, a / b / k)) * k);
     const matrix = new THREE.Matrix4().makeTranslation(to.x, to.y, to.z)
-      .multiply(new THREE.Matrix4().makeScale(fit(size.x, s.x), k, fit(size.z, s.z)))
+      .multiply(new THREE.Matrix4().makeScale(fit(size.x, s.x, 'x'), k, fit(size.z, s.z, 'z')))
       .multiply(new THREE.Matrix4().makeRotationY((turn * Math.PI) / 2))
       .multiply(new THREE.Matrix4().makeTranslation(-from.x, -from.y, -from.z));
     holder.matrix.copy(matrix);
@@ -210,7 +215,7 @@ window.fitGlb = async (options) => {
     let diff = 0;
     for (let v = 0; v < 3; v++) for (let i = 0; i < got[v].length; i++) diff += Math.abs(got[v][i] - want[v][i]);
     const score = diff / (3 * got[0].length);
-    if (!best || score < best.score) best = { score, turn, matrix: matrix.toArray() };
+    if (!best || score < best.score) best = { score, turn, matrix: matrix.toArray(), flat: thin !== '' };
   }
   // for checking by eye: the phone model and the fitted one from the same two corners
   holder.matrix.fromArray(best.matrix);

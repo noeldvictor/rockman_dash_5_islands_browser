@@ -13,6 +13,8 @@ export class FreeCamera {
   pitch = 0;
   /** Player heading in degrees (atan2 of the forward vector's x and z), from the game. */
   playerYaw = 0;
+  /** Distance from the camera to the point it orbits this frame (0 = not orbiting); see g3d.js mixView. */
+  pivotDistance = 0;
   /** during play: the game's Select key would open, examine or continue something */
   interact = false;
   /** While true the camera keeps its world heading when the player turns. */

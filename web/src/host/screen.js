@@ -41,7 +41,9 @@ export class Screen {
       canvas,
       antialias: true,
       alpha: false,
-      preserveDrawingBuffer: true,
+      // not preserved by the browser: see #replay for how a frame that builds on the previous
+      // picture gets it back. (Preserving made Android's WebView flash stale pictures.)
+      preserveDrawingBuffer: false,
       powerPreference: 'high-performance',
     });
     this.renderer.autoClear = false;
@@ -72,7 +74,14 @@ export class Screen {
     this.layers = []; // spare 2D layers: { canvas, texture }
     this.layer = null; // the one being drawn into
     this.steps = []; // the frame being recorded
-    this.shown = null; // the last presented frame: { steps, wide, interpolate, time }
+    this.shown = null; // the last presented frame: { steps, wide, complete, interpolate, time }
+    this.prior = null; // the frame before it (its layers are kept until the next one arrives)
+    // the finished picture of the last frame that did not paint the whole screen itself
+    this.base = null;
+    this.baseValid = false;
+    this.baseMaterial = new THREE.MeshBasicMaterial({ depthTest: false, depthWrite: false });
+    this.baseScene = new THREE.Scene();
+    this.baseScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.baseMaterial));
     this.interval = 1000 / 15; // measured time between game frames
     this.quadScene = new THREE.Scene();
     this.quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -122,12 +131,20 @@ export class Screen {
     this.xoff = (viewWidth - WIDTH) / 2;
     this.renderer.setSize(viewWidth * scale, HEIGHT * scale, false);
     // every layer has the old size: drop them, and with them whatever was recorded
-    for (const step of [...this.steps, ...(this.shown?.steps ?? [])]) step.layer?.texture.dispose();
+    for (const step of [...this.steps, ...(this.shown?.steps ?? []), ...(this.prior?.steps ?? [])]) step.layer?.texture.dispose();
     for (const layer of this.layers) layer.texture.dispose();
     this.layer?.texture.dispose();
     this.layers = [];
     this.steps = [];
     this.shown = null;
+    this.prior = null;
+    this.base?.dispose();
+    this.base = new THREE.FramebufferTexture(viewWidth * scale, HEIGHT * scale);
+    this.base.colorSpace = THREE.NoColorSpace;
+    this.base.minFilter = THREE.NearestFilter;
+    this.base.magFilter = THREE.NearestFilter;
+    this.baseMaterial.map = this.base;
+    this.baseValid = false;
     this.layer = this.#takeLayer();
     this.dirty2D = false;
     this.renderer.setScissorTest(false);
@@ -158,6 +175,7 @@ export class Screen {
       texture.magFilter = THREE.NearestFilter;
       layer = { canvas, texture };
     }
+    layer.full = false; // set by Graphics.fillRect when the whole phone screen is painted over
     this.graphics.bind(layer.canvas.getContext('2d'), this.scale, this.xoff);
     return layer;
   }
@@ -200,7 +218,10 @@ export class Screen {
     this.textDrawn = false;
     const now = performance.now();
     const previous = this.shown;
-    const frame = { steps: this.steps, wide: this.wide3D, interpolate: false, time: now };
+    // "complete": the frame starts by painting over the whole phone screen, as the game does
+    // for missions and most screens. Others (a loading bar ticking on, a box over a still
+    // picture) only draw what changed and rely on the previous picture still being there.
+    const frame = { steps: this.steps, wide: this.wide3D, complete: !!this.steps[0]?.layer?.full, interpolate: false, time: now };
     this.steps = [];
     this.wide3D = false;
     this.g3d.endFrame();
@@ -211,8 +232,9 @@ export class Screen {
       // interpolate only between two consecutive frames whose 3D belongs together
       frame.interpolate = this.frameRate !== 15 && dt < MAX_INTERVAL && !this.cutNext
         && this.g3d.link(previous.steps, frame.steps);
-      for (const step of previous.steps) if (step.layer) this.layers.push(step.layer);
     }
+    if (this.prior) for (const step of this.prior.steps) if (step.layer) this.layers.push(step.layer);
+    this.prior = previous;
     this.cutNext = false;
     this.shown = frame;
     if (!frame.interpolate) this.#replay(frame, 1);
@@ -243,14 +265,30 @@ export class Screen {
     this.stats.replays++;
     this.lastReplay = performance.now();
     const bars = this.xoff > 0 && !frame.wide; // no full-width 3D (menus, title): bars at the sides
-    if (bars && !this.sideFill) {
-      r.setScissorTest(true);
-      r.setClearColor(0x000000, 1);
-      r.setScissor(0, 0, this.xoff * k, HEIGHT * k);
-      r.clearColor();
-      r.setScissor((this.xoff + WIDTH) * k, 0, this.xoff * k, HEIGHT * k);
-      r.clearColor();
+    // The canvas does not keep its picture from one frame to the next, so every replay draws a
+    // whole one: black, then what this frame builds on if it does not paint everything itself
+    // (the saved picture of the previous such frame, or the previous frame's steps), then its own.
+    r.setScissorTest(false);
+    r.setViewport(0, 0, this.viewWidth * k, HEIGHT * k);
+    r.setClearColor(0x000000, 1);
+    r.clear(true, true, false);
+    if (!frame.complete) {
+      if (this.baseValid) r.render(this.baseScene, this.quadCamera);
+      else if (this.prior && frame === this.shown) this.#steps(this.prior, 1);
     }
+    this.#steps(frame, t);
+    if (bars && this.sideFill) this.#fillSideBars();
+    r.setScissorTest(false);
+    if (frame.complete) this.baseValid = false;
+    else if (t >= 1) {
+      r.copyFramebufferToTexture(this.base);
+      this.baseValid = true;
+    }
+  }
+
+  #steps(frame, t) {
+    const r = this.renderer;
+    const k = this.scale;
     for (const step of frame.steps) {
       if (!step.layer) {
         this.g3d.draw(step, t);
@@ -269,8 +307,6 @@ export class Screen {
       this.quadMaterial.map = texture;
       r.render(this.quadScene, this.quadCamera);
     }
-    if (bars && this.sideFill) this.#fillSideBars();
-    r.setScissorTest(false);
   }
 
   /** Draw an enlarged, blurred, dimmed copy of the 240-wide picture into the bars beside it. */

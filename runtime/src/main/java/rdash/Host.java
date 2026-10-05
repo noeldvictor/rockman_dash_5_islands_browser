@@ -112,6 +112,14 @@ public final class Host {
     @JSBody(params = {"gameFov"}, script = "return globalThis.DOJA.gfx.fov(gameFov);")
     public static native float fov(float gameFov);
 
+    /**
+     * Free-look: how far the camera is from the point it orbits this frame (0 = the game's own
+     * camera). In-between pictures swing the camera around that point instead of sliding it
+     * straight, which would cut through the corner of a wall it is going round.
+     */
+    @JSBody(params = {"distance"}, script = "globalThis.DOJA.camera.pivotDistance = distance;")
+    public static native void cameraPivot(float distance);
+
     /** Draw distance option: factor on the far plane the mission's camera culls against. */
     @JSBody(script = "return globalThis.DOJA.gfx.drawDistance();")
     public static native float drawDistance();

@@ -67,6 +67,7 @@ public final class Mods {
                 yaw += turn;
             }
         }
+        ax.portYaw = yaw;
         Host.cameraReport(true, yaw, canInteract(mission.e, player));
         if (Host.cameraChanged()) {
             player.o = true; // the game only rebuilds its camera when the player has moved

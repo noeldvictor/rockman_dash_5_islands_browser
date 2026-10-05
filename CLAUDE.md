@@ -167,7 +167,11 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
   `web/public/remake/<name>.glb` plus `manifest.json` (phone file -> list of `{url, fit,
   texture?}`). `web/src/mods/remake.js` loads that at start; `figure.js` draws the remade model
   under the game's own model matrix when the phone model is rigid (one bone), opaque, and the
-  texture matches (`Texture3D.key`). Settings > Extras > Remade models switches it. The folder
+  texture matches (`Texture3D.key`). A flat object (thinnest side under a quarter of the
+  longest: the doors) is fitted to exactly the phone model's thickness and drawn inside out,
+  far side only (`flat` in the manifest): the phone's door panel is drawn that way too, and it
+  is what hides a door once it has slid open into the plane of its wall. Settings > Extras >
+  Remade models switches it. The folder
   is git-ignored like every derived asset; `--full` packages include it.
 - Not done: models that bend (enemies, bosses, characters, the snowman and the Flutter) need
   the remade mesh cut into the phone model's rigid pieces or rigged (Tripo has auto-rig for
@@ -320,9 +324,18 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   model viewers) keep the square projection. The camera override widens the game's own
   culling frustum to match (`Host.aspect()`), otherwise objects pop out at the sides.
 - **Free-look camera** (right stick, mouse drag, R/R3 to re-centre; `camera.js`, `ax.java`,
-  `Mods.java`): during normal gameplay the follow camera is swung around a point above the player
-  by host-held yaw/pitch offsets, keeping the game's camera distance and stopping at walls with
-  the game's own map collision. The game only rebuilds its camera when the player moves, so
+  `Mods.java`): during normal gameplay, while the host holds yaw/pitch offsets, the camera is
+  placed from scratch (`ax.portFreeLook`): around a point above the player, at the game's
+  follow distance (7.05 units, 7 degrees down), turned by the offsets from the player's heading
+  (`ax.portYaw`), pulled in where a sphere swept from that point with the game's own map
+  collision meets a wall, and let back out gradually. It must not start from where the game
+  put its own camera: the game shortens and tilts that for walls behind the player, and with
+  the camera swung elsewhere and the player turning at once under direct movement the distance
+  jumped every frame. In-between pictures swing the camera around the same point
+  (`Host.cameraPivot`, `mixView` in `g3d.js`) instead of sliding it straight, which cut
+  through wall corners. The mission's near plane is drawn at 0.25 instead of the game's 1: in
+  a wide picture the near plane reaches 2 units sideways and opened up any wall next to the
+  camera. The game only rebuilds its camera when the player moves, so
   `Mods` sets the player's "moved" flag when the offsets change. While the left stick is used the
   camera holds its world heading and the stick steers relative to it by pressing the game's own
   turn/forward keys (the game itself only has tank controls). `Mods.sky` adds the yaw offset to
@@ -514,7 +527,15 @@ two sets render within about 2 dB of each other), not by ear.
 steps and replayed when the game presents it: 2D calls draw into a Canvas2D layer; whenever 3D is
 flushed the pending layer becomes a step and a fresh layer is started, then the 3D batch becomes a
 step (objects, their matrices, view, projection, clip), drawn with a fresh depth buffer, so 2D/3D
-ordering matches the phone. The back buffer is preserved between frames. Drawing instances
+ordering matches the phone. The canvas is not asked to keep its picture
+(`preserveDrawingBuffer: false`: with it on, Android's WebView now and then showed a
+seconds-old picture for one display frame, which was the "flashes" seen on the Retroid), so
+every replay draws a whole picture: black, then the frame's steps. A frame that starts by
+painting over the whole phone screen (`Graphics.fillRect` covering 240x240 sets `layer.full`;
+missions and most screens do) is "complete" and needs nothing else. Any other frame builds on
+the previous picture, as it did on the phone's persistent back buffer: that picture is drawn
+first, from `Screen.base` (a texture copied from the canvas after each such frame) or, the
+first time, by replaying the previous frame's steps (`Screen.prior`). Drawing instances
 (figure meshes, primitives, Legends 2 models, shadow discs) are reused per frame, not per flush,
 because a recorded frame may be replayed several times. Surfaces are `scale`× the phone's 240 px
 (F2 toggles 1× "original" mode); decoded art stays native resolution with nearest filtering.
