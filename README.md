@@ -95,7 +95,8 @@ controller); none change the game's rules, and with everything off you get the p
   until you close the game.
 - **Cheats** — infinite life, infinite weapon energy, one-hit kills, max zenny, game speed.
 - **Mega Man Legends 2 character models** — if you own that game's disc, its models can stand in
-  for the phone's (see [below](#optional-legends-2-character-models)).
+  for the phone's, faces included: they change expression where the phone characters do
+  (see [below](#optional-legends-2-character-models)).
 - A small toolbar over the game in fullscreen, so settings and fast-forward stay in reach.
 - **Take it anywhere** — one script packs the game into a single HTML file, another into an
   Android app; both play offline.
@@ -230,8 +231,9 @@ it the most complete description of the project.
 ## Optional: Legends 2 character models
 
 If you have a disc image of *Mega Man Legends 2* (PlayStation), `tools/mml2/` can extract its
-character models and the port will pose them with the phone game's own animation. Nothing from
-that disc is in this repository either; the commands are in `CLAUDE.md` under "Commands". Without
+character models and the port will pose them with the phone game's own animation, and pick the
+Legends 2 face that best matches each of the phone game's expressions (matched by eye; the two
+games do not have the same set of faces). Nothing from that disc is in this repository either; the commands are in `CLAUDE.md` under "Commands". Without
 it the phone's own models are used, and everything else works the same.
 
 ## Status
