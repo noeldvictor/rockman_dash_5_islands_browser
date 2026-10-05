@@ -134,7 +134,7 @@ on its own. To read the game's logic, decompile the jar with CFR (`java -jar cfr
 original/localized/RockmanDASH.jar --outputdir build/decomp`); class and method names are
 obfuscated (`a`…`bt`).
 
-## AI model remake (in progress: props and the first enemy are in the game)
+## AI model remake (props, enemies, bosses and three side characters are in the game)
 
 The user wants the game's models remade with Tripo (tripo3d.ai) and approved the quality of a
 test batch on 2026-10-05. Scope: everything, in the order props and objects, enemies and bosses,
@@ -197,10 +197,19 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
   left and right arm) share one model: `install_remake.py b02_2=b02_1`, or a file
   `build/ai/models/b02_2/skip` containing `=b02_1`, which also keeps `remake.py` from making
   it; an empty `skip` file just excludes a model.
+- Checking and rejecting. Every result has to be looked at: `compare.png` (phone model,
+  redraws, new model), `fit.png` and `poses.png`. One that is wrong is kept out of the game
+  with an empty file `build/ai/models/<name>/skip` followed by `install_remake.py <name>`.
+  Rejected so far: `e05_1` (an enemy's shield, an L-shaped plate that came back as a cleaver)
+  and `o16` (a rock block that came back as an open tray), both thin or plain shapes the image
+  model had little to hold on to; and `kobun` from the first test (one picture, mid-stride).
+  `phone_models.py` renders a model that has face patterns with its animation's first frame,
+  or it has no face at all (Data and Denise were first made faceless that way).
 - Not remade: the main characters (the Legends 2 models stand in for them and have
-  expressions; a Tripo model would have one fixed face) and the player's separate body parts.
-  Not worth remaking: flat textured pieces (walls `o17`/`o18`, the laser gate, floor tiles,
-  the lava jet), which the texture packs cover.
+  expressions; a Tripo model has one fixed face, which Data and Denise now have) and the
+  player's separate body parts; the pillar `o06` and the icicle `o12` (left out to save
+  credits); a boss's cape piece `b01_1`. Not worth remaking: flat textured pieces (walls
+  `o17`/`o18`, the laser gate, floor tiles, the lava jet), which the texture packs cover.
 - API: base `https://openapi.tripo3d.ai/v3`, `Authorization: Bearer <key>`, asynchronous tasks
   polled through `/tasks/<id>`. The key is in `build/ai/tripo.key` (git-ignored) or
   `$TRIPO_API_KEY`; it must never reach a tracked file. Docs are fetched with the
@@ -212,7 +221,7 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
 The user asked how far the levels themselves can be improved. Three things were tried on one
 area, `a1_5` ("Valley Road", the approach to the first ruin on island 1):
 
-- **Texture restyle (works; one area done).** `tools/ai/restyle.py --area a1_5` sends each map
+- **Texture restyle (done for every map).** `tools/ai/restyle.py --area a1_5` sends each map
   texture, tiled 2x2, to an image model (`banana2`, 10 credits each) to be redrawn in the look
   of the remade models, cuts one tile from the middle of the answer, cross-fades its edges so
   it still repeats, and writes it 4x the size to `web/public/redraw/` with a manifest in the
@@ -220,7 +229,11 @@ area, `a1_5` ("Valley Road", the approach to the first ruin on island 1):
   mode `redraw`; a texture without a redraw falls back to the upscaled pack). The prompt has to
   say that plain surfaces stay plain: the gravel first came back as carved paving. The cheaper
   models were tried and rejected: `banana` returns the picture unchanged, `seedream_v5` draws
-  harsh pixel art. The whole game is about 130 textures.
+  harsh pixel art. `restyle.py --maps` did every map texture of the game (60 distinct
+  pictures under 109 names); six were thrown out again with `--drop` because the model had
+  invented things (gravel as cobblestones, a rough wall as a carved maze, lava as stripes) and
+  show the upscaled texture instead. Object and character textures are not redrawn: the
+  remade models bring their own.
 - **Roomier areas (experiment, every area).** `web/src/host/roomy.js`, Settings > Extras >
   "Roomier areas (experiment)" or `?roomy=1.5`: a mission area is stretched in x and z while
   what stands in it keeps its size (the game's corridors are one 6-unit block wide). Done as

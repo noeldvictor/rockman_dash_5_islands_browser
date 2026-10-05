@@ -13,6 +13,9 @@ For every model that has been remade (build/ai/models/<name>/model.glb, see rema
     build/ai/models/<name>/fit.png: the phone model above, the fitted one below, to check;
     for a model that moves in pieces also poses.png: both in a few poses of the phone animation.
 
+A model that did not come out right is kept out with an empty file `skip` in its folder
+(build/ai/models/<name>/skip); remake.py then leaves it alone too.
+
 A phone model made of several rigid pieces also gets, per vertex, the piece it moves with
 (`skin`), and one the game draws in several colours gets the new picture recoloured for each.
 
@@ -21,6 +24,7 @@ there. Like everything derived from the game, the folder is git-ignored. Needs t
 """
 import argparse
 import base64
+import glob
 import io
 import json
 import os
@@ -176,6 +180,18 @@ def main():
             phone = phone_models.model_file(name)
             if not phone:
                 print('no phone model called', name)
+                continue
+            marker = os.path.join(SRC, name, 'skip')
+            if source == name and os.path.exists(marker) and not open(marker).read().strip():
+                # looked at and rejected (an empty `skip` file): out of the game again
+                kept = [e for e in manifest['models'].get(phone, []) if e['url'] != f'{name}.glb']
+                if kept:
+                    manifest['models'][phone] = kept
+                else:
+                    manifest['models'].pop(phone, None)
+                for old in glob.glob(os.path.join(DST, f'{name}.glb')) + glob.glob(os.path.join(DST, f'{name}@*.jpg')):
+                    os.remove(old)
+                print(f'{name}: rejected (build/ai/models/{name}/skip), not installed')
                 continue
             glb = open(os.path.join(SRC, source, 'model.glb'), 'rb').read()
             small = shrink(glb, args.texture)
