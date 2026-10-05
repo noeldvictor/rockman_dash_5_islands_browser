@@ -9,6 +9,7 @@ import { TYPE } from './g3d.js';
 import { MODEL_FLIP } from './conventions.js';
 import { registerTexture } from './texfilter.js';
 import { makeLit } from './lighting.js';
+import { sceneScale } from './roomy.js';
 
 function imageTexture(image, opaque) {
   const { width, height, palette, pixels, bytesPerPixel, isPaletted } = image;
@@ -54,7 +55,15 @@ class Group3D {
     for (const w of scene.warnings) console.warn('[d4d]', w);
 
     const local = new THREE.Matrix4().copy(MODEL_FLIP);
+    // experiment (roomy.js): the area stretched horizontally; its collision is stretched alike
+    const wide = sceneScale();
     for (const mesh of scene.meshes) {
+      if (wide !== 1) {
+        for (let i = 0; i < mesh.positions.length; i += 3) {
+          mesh.positions[i] *= wide;
+          mesh.positions[i + 2] *= wide;
+        }
+      }
       const position = new THREE.BufferAttribute(mesh.positions, 3);
       const uv = mesh.uvs ? new THREE.BufferAttribute(mesh.uvs, 2) : null;
       const color = mesh.colors

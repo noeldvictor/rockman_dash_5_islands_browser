@@ -56,7 +56,7 @@ const files = walk(dist).map((p) => relative(dist, p).split('\\').join('/')).fil
   if (path.startsWith('data/sdcard/')) return true;
   if (path.startsWith('data/')) return variants.some((v) => path.startsWith(`data/${v}/`)) && !path.endsWith('.jar.bak');
   if (path.startsWith('soundfont/')) return want.soundfont;
-  if (path.startsWith('hd/')) return want.hd;
+  if (path.startsWith('hd/') || path.startsWith('redraw/')) return want.hd;
   if (path.startsWith('mml2/')) return want.mml2;
   if (path.startsWith('remake/')) return want.remake;
   return false;

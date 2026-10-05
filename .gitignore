@@ -38,3 +38,6 @@ __pycache__/
 
 # remade models built with the Tripo API from the game's own (tools/ai/install_remake.py)
 /web/public/remake/
+
+# map textures redrawn by an image model from the game's own (tools/ai/restyle.py)
+/web/public/redraw/

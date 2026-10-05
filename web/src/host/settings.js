@@ -51,6 +51,8 @@ export const DEFAULTS = {
   cameraDistance: 1,
   // extras
   legends2: true,
+  /** experiment: horizontal stretch of the test areas (roomy.js); 1 = off */
+  roomy: 1,
   /** draw the remade models where they are installed (web/public/remake/) */
   remake: true,
 };

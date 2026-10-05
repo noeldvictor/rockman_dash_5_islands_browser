@@ -4,6 +4,7 @@
 // SD-card writes are kept in memory and mirrored to IndexedDB so saves survive a reload.
 
 import { unzipSync } from 'fflate';
+import { onRead } from './roomy.js';
 
 const DB_NAME = 'rdash';
 const STORE = 'files';
@@ -183,7 +184,8 @@ export class Resources {
   // ---- host interface (called from the recompiled game through rdash.Host) -------------------
   resource(name) {
     const f = this.jar[name];
-    return f ? i8(f) : null;
+    if (!f) return null;
+    return i8(onRead(name, f) ?? f); // roomy.js may widen an area's room data and cutscenes
   }
 
   spRead(seg, pos, len) {
@@ -232,7 +234,8 @@ export class Resources {
 
   zipEntry(zip, name) {
     const f = zip[name];
-    return f ? i8(f) : null;
+    if (!f) return null;
+    return i8(onRead(name, f) ?? f);
   }
 
   /** The game's data zips: the scratchpad's (current island) and each island's on the SD card. */

@@ -25,6 +25,8 @@ let maxAnisotropy = 1;
  * { base, textures: { key: { file, keyed? } }, models: { model: { imageIndex: file } } }
  */
 let pack = null;
+/** The redrawn textures (tools/ai/restyle.py), same format; a texture it lacks falls back to `pack`. */
+let redrawn = null;
 /** Diagnostics: textures taken from the pack / not found in it. */
 export const packStats = { loaded: 0, missing: 0 };
 
@@ -40,15 +42,16 @@ function packKey({ data, width, height }) {
 }
 
 /** Fetch a texture's picture from the pack; its transparency is the original's, enlarged smoothly. */
-async function loadFromPack(t, entry) {
+async function loadFromPack(t, entry, which = 'ai') {
   const { original } = entry;
-  const info = pack.textures[packKey(original)];
+  const from = which === 'redraw' ? redrawn : pack;
+  const info = from.textures[packKey(original)];
   if (!info) {
-    packStats.missing++;
+    if (which === 'ai') packStats.missing++;
     return;
   }
   const transparent = original.data.some((v, i) => (i & 3) === 3 && v < 255);
-  const response = await fetch(`${pack.base}/${transparent && info.keyed ? info.keyed : info.file}`);
+  const response = await fetch(`${from.base}/${transparent && info.keyed ? info.keyed : info.file}`);
   if (!response.ok) return;
   const bitmap = await createImageBitmap(await response.blob());
   const { width, height } = bitmap;
@@ -71,9 +74,9 @@ async function loadFromPack(t, entry) {
     const alpha = ctx.getImageData(0, 0, width, height).data;
     for (let i = 0; i < data.length; i += 4) data[i + 3] = alpha[i];
   }
-  entry.cache.ai = { data, width, height };
+  entry.cache[which] = { data, width, height };
   packStats.loaded++;
-  if (mode === 'ai' && entries.has(t)) apply(t, entry);
+  if ((mode === 'ai' || mode === 'redraw') && entries.has(t)) apply(t, entry);
 }
 
 /** Give transparent texels the average colour of their opaque neighbours (alpha stays 0). */
@@ -150,7 +153,15 @@ function imageFor(t, entry) {
   const { original, cache } = entry;
   if (mode === 'sharp') return original;
   let kind = mode;
-  if (mode === 'ai') {
+  if (mode === 'ai' || mode === 'redraw') {
+    // redrawn if there is one, else the upscaled one, else enlarged here
+    if (mode === 'redraw') {
+      if (cache.redraw) return cache.redraw;
+      if (redrawn && !entry.requestedRedraw) {
+        entry.requestedRedraw = true;
+        loadFromPack(t, entry, 'redraw').catch((e) => console.warn('[textures] redrawn picture failed', e));
+      }
+    }
     if (cache.ai) return cache.ai;
     if (pack && !entry.requested) {
       entry.requested = true;
@@ -179,7 +190,7 @@ function apply(t, entry) {
   else if (entry.packName) {
     // not raw pixels: the picture is swapped whole, when the pack has one
     image = entry.source;
-    if (mode === 'ai') {
+    if (mode === 'ai' || mode === 'redraw') {
       if (entry.cache.ai) image = entry.cache.ai;
       else if (pack && !entry.requested) {
         entry.requested = true;
@@ -223,22 +234,24 @@ export function registerTexture(t, packName = null) {
  * Look for the AI texture pack under `base` (manifest.json + one PNG per texture).
  * @returns {Promise<boolean>} whether there is one
  */
-export async function loadTexturePack(base) {
+export async function loadTexturePack(base, which = 'ai') {
   try {
     const response = await fetch(`${base}/manifest.json`);
     if (!response.ok) return false;
     const manifest = await response.json();
-    pack = { base, textures: manifest.textures ?? {}, models: manifest.models ?? {} };
+    const loaded = { base, textures: manifest.textures ?? {}, models: manifest.models ?? {} };
+    if (which === 'redraw') redrawn = loaded;
+    else pack = loaded;
   } catch {
     return false;
   }
-  if (mode === 'ai') for (const [t, entry] of entries) apply(t, entry);
+  if (mode === 'ai' || mode === 'redraw') for (const [t, entry] of entries) apply(t, entry);
   return true;
 }
 
-/** @param {'sharp'|'smooth'|'hd'|'ai'} value */
+/** @param {'sharp'|'smooth'|'hd'|'ai'|'redraw'} value */
 export function setTextureFilter(value) {
-  const next = ['smooth', 'hd', 'ai'].includes(value) ? value : 'sharp';
+  const next = ['smooth', 'hd', 'ai', 'redraw'].includes(value) ? value : 'sharp';
   if (next === mode) return;
   mode = next;
   for (const [t, entry] of entries) apply(t, entry);

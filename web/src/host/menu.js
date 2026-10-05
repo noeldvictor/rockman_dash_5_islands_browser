@@ -37,7 +37,7 @@ export class SettingsMenu {
     this.tab = 'video';
     this.padName = null;
     /** Rows that only apply when something optional is installed: id -> boolean */
-    this.available = { legends2: false, remake: false, soundfont: false, texturePack: false };
+    this.available = { legends2: false, remake: false, soundfont: false, texturePack: false, redrawPack: false };
     this.#listening = null;
     root.hidden = true;
     // keys typed in the menu never reach the game or the page shortcuts
@@ -207,6 +207,7 @@ export class SettingsMenu {
       this.#select('textureFilter', 'Textures', [
         ['sharp', 'Sharp pixels (original)'], ['smooth', 'Smooth'], ['hd', 'HD (upscaled 4×, smooth)'],
         ...(this.available.texturePack ? [['ai', 'AI upscaled 4×']] : []),
+        ...(this.available.redrawPack ? [['redraw', 'AI redrawn']] : []),
       ], this.available.texturePack ? 'AI upscaled uses the texture pack made on your image server'
         : 'Smooth and HD also use anisotropic filtering'),
       this.#slider('fov', 'Field of view', { min: 45, max: 100, step: 5, unit: '°', scale: 1 }),
@@ -345,6 +346,9 @@ export class SettingsMenu {
       this.available.legends2
         ? this.#check('legends2', 'Legends 2 character models', 'Draw characters with the installed Mega Man Legends 2 models')
         : el('p', { class: 'note' }, 'Legends 2 character models are not installed (see tools/mml2/).'),
+      this.#select('roomy', 'Roomier areas (experiment)', [
+        [1, 'Off'], [1.25, '1.25× wider'], [1.5, '1.5× wider'],
+      ], 'Test only: the path to the first ruin on island 1. Takes effect when the area loads'),
       ...(this.available.remake
         ? [this.#check('remake', 'Remade models', 'Draw the AI-remade models that are installed in place of the phone models')]
         : []),

@@ -69,7 +69,7 @@ cp web/dist/index.html build/android/assets/www/
 cp -r web/dist/assets web/dist/game web/dist/data build/android/assets/www/
 if [ "$SMALL" = 0 ] && [ -d web/dist/soundfont ]; then cp -r web/dist/soundfont build/android/assets/www/; fi
 if [ "$FULL" = 1 ]; then
-  for extra in hd mml2 remake; do
+  for extra in hd redraw mml2 remake; do
     if [ -d "web/dist/$extra" ]; then cp -r "web/dist/$extra" build/android/assets/www/; fi
   done
 fi
