@@ -327,6 +327,7 @@ class Figure3D {
           bones: this.poseBones.slice(),
           rest: this.restBones,
           height: model.bounds.max[1],
+          pattern, // which of the figure's face variants is showing
           meshes: out,
           cache: this.alignCache,
         },

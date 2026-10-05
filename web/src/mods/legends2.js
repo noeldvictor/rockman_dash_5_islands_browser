@@ -51,6 +51,8 @@ const CHARACTERS = {
   'rock.mba': {
     model: 'megaman_nohelmet',
     body: 2,
+    // neutral, smile, serious, shout, wink, nervous grin, angry
+    face: { 2: [0, 0], 4: [3, 0], 8: [1, 0], 16: [2, 1], 32: [2, 0], 64: [1, 1], 128: [1, 0] },
     // bones 5 and 6 are alternative left forearms (buster / hand); the animation scales the one
     // not in use to nothing, so the forearm follows whichever is shown
     forearm: { buster: 5, hand: 6 },
@@ -63,6 +65,8 @@ const CHARACTERS = {
   'roll.mba': {
     model: 'roll',
     body: 3,
+    // neutral, laugh, uneasy, surprised, stern, cross, eyes closed, neutral (talking)
+    face: { 2: [0, 0], 4: [2, 0], 8: [1, 0], 16: [3, 0], 32: [1, 0], 64: [1, 0], 128: [1, 0], 256: [0, 0] },
     bones: [
       [1, 'hip'], [3, 'body'], [4, 'head'],
       [5, 'shoulder_l', [6, 'arm_l']], [6, 'arm_l', [7, 'hand_l']], [7, 'hand_l', 'parent'],
@@ -74,6 +78,8 @@ const CHARACTERS = {
   'toron.mba': {
     model: 'tron',
     body: 11,
+    // neutral, smile, worried, angry, neutral (mouth set), bashful smile
+    face: { 2: [0, 0], 4: [1, 0], 8: [3, 1], 16: [1, 2], 32: [0, 0], 64: [1, 0] },
     bones: [
       [1, 'hip'], [11, 'body'], [13, 'head'],
       [19, 'shoulder_l', [20, 'arm_l']], [20, 'arm_l', [21, 'hand_l']], [21, 'hand_l', 'parent'],
@@ -85,6 +91,8 @@ const CHARACTERS = {
   'tisel.mba': {
     model: 'teisel',
     body: 9,
+    // neutral, laugh, worried, rage, gritted teeth, grin
+    face: { 2: [0, 0], 4: [4, 1], 8: [3, 0], 16: [0, 1], 32: [2, 1], 64: [1, 0] },
     bones: [
       [1, 'bone09'], [9, 'bone00'], [11, 'bone01'], [12, 'bone02', 'parent'],
       [13, 'bone03', [14, 'bone04']], [14, 'bone04', [15, 'bone05']], [15, 'bone05', 'parent'],
@@ -97,9 +105,46 @@ const CHARACTERS = {
     // the Legends 2 Servbot has one rigid piece per limb: follow the upper limb bones
     model: 'servbot',
     body: 1,
+    // happy, laughing, surprised, nervous, crying
+    face: { 2: [3, 1], 4: [0, 1], 8: [1, 0], 16: [2, 1], 32: [5, 0] },
     bones: [[1, 'bone00'], [8, 'bone01'], [12, 'bone02'], [9, 'bone03'], [5, 'bone04'], [2, 'bone05']],
   },
 };
+
+/**
+ * Faces. The phone figures carry several whole faces as polygon groups ("patterns") and their
+ * animations say which one shows (figure.js passes the value on); the game never sets one
+ * itself. A Legends 2 face is the part of the head textured from a sheet of expressions, one
+ * cell each, and modelled on the first cell. So an expression is a shift of those vertices'
+ * texture coordinates by whole cells; the `face` table of a character above maps the phone
+ * pattern to [column, row], chosen by eye from the two sets of faces.
+ *
+ * Per model: which image of the file is the sheet, and the cell size in texels (the sheets are
+ * 256x256). Face vertices are found by their triangles lying inside the first cell.
+ */
+const FACE_SHEETS = {
+  megaman_nohelmet: { image: 2, cell: [64, 51] }, // 4 + 3 faces
+  roll: { image: 2, cell: [64, 56] }, // 4 distinct faces, the rest of the sheet repeats the first
+  tron: { image: 2, cell: [64, 56] }, // 4 x 4
+  teisel: { image: 2, cell: [48, 64] }, // 5 x 4
+  servbot: { image: 0, cell: [39, 42] }, // 6 x 2; the mesh mirrors half a face
+};
+const SHEET_SIZE = 256;
+
+/** Mark the vertices of `geometry` whose triangles lie inside the sheet's first cell. */
+function findFace(geometry, [cellW, cellH]) {
+  const uv = geometry.attributes.uv;
+  const index = geometry.index;
+  const count = index ? index.count : uv.count;
+  const at = (i) => (index ? index.getX(i) : i);
+  const inside = (v) => uv.getX(v) * SHEET_SIZE <= cellW + 0.6 && uv.getY(v) * SHEET_SIZE <= cellH + 0.6;
+  const verts = new Set();
+  for (let i = 0; i < count; i += 3) {
+    const a = at(i), b = at(i + 1), c = at(i + 2);
+    if (inside(a) && inside(b) && inside(c)) verts.add(a).add(b).add(c);
+  }
+  return verts.size ? { verts: Uint32Array.from(verts), base: uv.array.slice(), step: [cellW / SHEET_SIZE, cellH / SHEET_SIZE] } : null;
+}
 
 const PHONE_UNIT = 1 / 64; // world units per phone model unit
 const PHONE_PLAYER_HEIGHT = 186 * PHONE_UNIT;
@@ -154,6 +199,15 @@ class Instance {
       for (const c of o.children) visit(c);
     };
     visit(this.root);
+    // the face's texture coordinates change with the expression: this copy needs its own
+    this.faces = [];
+    for (const o of skinned) {
+      const face = o.geometry.userData.face;
+      if (!face) continue;
+      o.geometry = o.geometry.clone();
+      this.faces.push({ uv: o.geometry.attributes.uv, ...face });
+    }
+    this.faceCell = '0,0';
     for (const o of skinned) {
       const material = Array.isArray(o.material) ? o.material.map((m) => m.userData.outline) : o.material.userData.outline;
       const shell = new THREE.SkinnedMesh(o.geometry, material);
@@ -200,6 +254,22 @@ class Instance {
     const node = this.parts.get(part);
     if (node) node.visible = visible;
   }
+
+  /** Show the expression in cell [column, row] of the face sheet (default: the first). */
+  setFace(cell) {
+    const [col, row] = cell ?? [0, 0];
+    const key = `${col},${row}`;
+    if (key === this.faceCell) return;
+    this.faceCell = key;
+    for (const { uv, verts, base, step } of this.faces) {
+      const out = uv.array;
+      for (const v of verts) {
+        out[v * 2] = base[v * 2] + col * step[0];
+        out[v * 2 + 1] = base[v * 2 + 1] + row * step[1];
+      }
+      uv.needsUpdate = true;
+    }
+  }
 }
 
 export class Legends2 {
@@ -241,6 +311,12 @@ export class Legends2 {
             const texture = gltf.parser.associations.get(mat.map)?.textures;
             const image = gltf.parser.json.textures?.[texture]?.source;
             registerTexture(mat.map, image === undefined ? null : [name, String(image)]);
+            // the part of the head drawn from the sheet of expressions
+            const sheet = FACE_SHEETS[name];
+            if (sheet && sheet.image === image && !Array.isArray(o.material)) {
+              const face = findFace(o.geometry, sheet.cell);
+              if (face) o.geometry.userData.face = face;
+            }
           }
           // the game is unlit; PlayStation textures are colour-keyed
           const m = makeLit(new THREE.MeshBasicMaterial({ map: mat.map, alphaTest: 0.5, side: THREE.DoubleSide }),
@@ -344,6 +420,7 @@ export class Legends2 {
         }
         this.#apply(inst, part, table);
         this.#solve(inst, part, spec.body, scale);
+        inst.setFace(spec.face?.[part.pattern]);
         this.#place(inst, a.matrix, scale);
         nodes.push(inst.root);
         this.stats.replaced++;
@@ -366,6 +443,7 @@ export class Legends2 {
       const weapon = a.parts.get('weapon');
       inst.setVisible('arm_r', !weapon);
       if (weapon) for (const m of weapon.meshes) meshes.push({ mesh: m, matrix: a.matrix });
+      inst.setFace(null); // the in-game head has one face
       // during play the left arm is the buster
       inst.setVisible('arm_l', false);
       inst.setVisible('buster', true);

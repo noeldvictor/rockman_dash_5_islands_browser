@@ -354,6 +354,16 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
     (Teisel), `kobun.mba` (Servbot). `rock.mba` has two alternative left forearms, bone 5 (buster)
     and bone 6 (hand); the animation scales the unused one to nothing, and the Legends 2 forearm
     follows whichever is shown.
+  - Faces. A phone figure carries several whole faces as polygon groups (MBAC "patterns") and
+    its animations switch between them (pattern keys in the `.mtr`; the game never calls
+    `setPattern`); `figure.js` passes the current value on. A Legends 2 face is the part of the
+    head textured from a 256x256 sheet of expressions, one cell each (MegaMan 64x51 texels and
+    7 faces, Roll and Tron 64x56, Teisel 48x64 in 5x4, the Servbot 39x42 in 6x2 with half a
+    face mirrored), modelled on the first cell. `findFace` marks the vertices whose triangles
+    lie inside the first cell, each drawn copy gets its own texture coordinates for that mesh,
+    and `Instance.setFace([column, row])` shifts them by whole cells. The `face` table of each
+    entry in `CHARACTERS` maps pattern value to cell, picked by eye. The in-game player's head
+    figures have a single face.
   - Diagnostics: `DOJA.legends2.stats` (recognised / parts / replaced / incomplete).
 
 ## Sound
@@ -448,13 +458,12 @@ Keep this section current.
   resources is covered only by the self-check, not seen in the game.
 - Legends 2 replacement: MegaMan, Roll, Tron and Teisel are replaced in the New Game intro
   cutscenes and the in-game player (assembled from parts) is replaced during play; poses match
-  the phone models' at the same frame. The Servbot mapping has not been seen in a test. The
-  phone models' face patterns (closed eyes, expressions) are not carried over yet: the Legends 2
-  faces stay neutral. The data is there — a Legends 2 face is a separate sub-mesh (`face`,
-  `mouth`) textured from a sheet with one cell per expression (MegaMan's, `PL00T` e002, has
-  seven 64-pixel-wide cells: neutral, narrowed, closed, grin, crying, startled, shouting) — so
-  it needs a table from each phone figure's pattern bits to a cell, and a UV shift on the face
-  mesh. Only
+  the phone models' at the same frame. The Servbot mapping has not been seen in a test. Faces
+  follow the phone game's expressions (checked against the phone faces in the New Game intro for
+  MegaMan, Roll and Teisel; Tron's and the Servbot's tables use the same mechanism but were not
+  seen changing in a test). The phone game has fewer and different expressions than Legends 2,
+  so the match is by eye and approximate: Roll's sheet in particular has only four distinct
+  faces. Only
   models are hooked up; the extracted Legends 2 textures, music and sound effects
   (`build/mml2/`) are unused: the effects are unnamed samples, so mapping them to the phone's 25
   effects (`se00`–`se24`) has to be done by ear.
