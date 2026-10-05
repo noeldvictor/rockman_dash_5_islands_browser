@@ -42,6 +42,8 @@ public final class Mods {
                 // the mission's own prompts and notices ("Return to the Flutter?" Yes/No, item found,
                 // results ...): they are driven with left/right and Select, like a menu
                 && !(mission.e.b || mission.e.c || mission.e.d || mission.e.i || mission.e.l);
+        Host.mapMode(game.u != null && game.u.f == STATE_MISSION && mission != null
+                && mission.d != null && mission.d.a != null && mission.d.a.D);
         if (!gameplay) {
             ax.portCamera = null;
             ax.portMap = null;

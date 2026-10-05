@@ -175,18 +175,39 @@ in `web/dist/` that any web server can host (remember that it then contains your
 
 Everything here can be changed under Settings > Controls.
 
+**While playing**
+
 | Action | Keyboard | Controller |
 |---|---|---|
-| Move / turn | Arrows or WASD | Left stick or D-pad; L1 / R1 turn |
-| Look around | Drag the mouse (or capture it: Settings > Controls); R re-centres | Right stick; R3 re-centres |
-| Jump | Space or X | A / Cross |
-| Buster | Z or J | X / Square |
-| Special weapon | C or K | Y / Triangle |
-| Lock-on | Shift, V or L | L2 / R2 |
-| Confirm | Enter | A / Cross or B / Circle |
-| Map / Back, Items (the labels under the game; also clickable) | Q, E | Select, Start |
+| Move | Arrows or WASD | Left stick or D-pad |
+| Look around | Drag the mouse (or capture it: Settings > Controls); R re-centres | Right stick, LB / RB; R3 re-centres |
+| Jump | Space or X | A |
+| Buster | Z or J | X or RT |
+| Special weapon | C or K | Y |
+| Lock-on | Shift, V or L | LT |
+| Talk / open / examine | Enter | A (when something is in reach) or B |
+| Map, Items | Q, E | Select, Start |
+
+**In menus, shops, dialogue and cutscenes**
+
+| Action | Keyboard | Controller |
+|---|---|---|
+| Move the cursor (hold to repeat) | Arrows or WASD | D-pad or left stick |
+| Confirm | Enter, Space or Z | A |
+| Back / close | Backspace, Esc or X | B or Start |
+| Skip a cutscene | Esc | Start |
+| Previous / next page | Page Up / Page Down | LB / RB |
+| Soft keys (the labels under the game; also clickable) | Q, E | X or Select, Y |
+
+**Always**
+
+| Action | Keyboard | Controller |
+|---|---|---|
 | Fast-forward (hold; or click the button under the game) | Tab | L3 |
-| Settings menu | F1 | Press both sticks in (then D-pad, A, B, L1 / R1) |
+| Settings menu | F1 | Press both sticks in (then D-pad, A, B, LB / RB) |
+
+With a controller connected, the labels under the game show which button does what at that
+moment ("B Back", "Start Skip").
 
 F2 original resolution, F3 widescreen, F4 cheats, M mute, F fullscreen.
 

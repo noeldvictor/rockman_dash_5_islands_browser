@@ -34,6 +34,8 @@ export const DEFAULTS = {
   /** 'sampled' (recorded instruments, if the set has been generated) or 'fm' (phone-style synthesis) */
   instruments: 'sampled',
   // controls
+  /** version of the action list the bindings below belong to (2: separate play and menu sets) */
+  bindings: 2,
   /** action id -> KeyboardEvent.code[]; null = the defaults in input.js */
   keyboard: null,
   /** action id -> gamepad button index[]; null = the defaults in input.js */
@@ -70,6 +72,12 @@ export class Settings {
     }
     if (saved && typeof saved === 'object') {
       for (const k of Object.keys(DEFAULTS)) if (k in saved) this.#values[k] = saved[k];
+      if (saved.bindings !== DEFAULTS.bindings) {
+        // bound under an older action list: the same button would now do two things in a menu
+        this.#values.keyboard = null;
+        this.#values.gamepad = null;
+        this.#values.bindings = DEFAULTS.bindings;
+      }
       if (saved.smoothMotion && !('frameRate' in saved)) this.#values.frameRate = 0; // older name
       if (saved.analogMove && !('directKeys' in saved)) this.#values.directKeys = true; // older name
     } else {

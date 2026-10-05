@@ -269,12 +269,31 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   brought to the standard layout by `standardPad`: a pad the browser reports with an empty
   `mapping` and six or more axes is read in the Linux driver (evdev) order — left stick, left
   trigger, right stick, right trigger, d-pad hat on axes; A, B, X, Y, LB, RB, Back, Start, Guide,
-  L3, R3 on buttons — otherwise its right stick would be read from a trigger axis. Defaults: A jump+confirm,
-  X buster, Y special, B confirm, L1/R1 turn, L2/R2 lock-on,
-  Select/Start soft keys, R3 re-centre camera, L3 fast-forward, L3+R3 settings menu, left
-  stick = d-pad. Keyboard and
-  controller bindings are per action (`ACTIONS` in `input.js`) and user-editable. The phone
+  L3, R3 on buttons — otherwise its right stick would be read from a trigger axis. The phone
   vibrator (`PhoneSystem` attribute 1) drives rumble.
+- Bindings (`ACTIONS` in `input.js`, user-editable, per keyboard and controller) come in two
+  sets, so a button can mean one thing in play and another in a menu: `set: 'play'` applies
+  while a mission is being played (the follow camera reports and the frame has no text),
+  `set: 'menu'` everywhere else (menus, shops, dialogue, cutscenes, the map and item screens);
+  the four directions, fast-forward and the settings menu have no set. Controller defaults —
+  play: A jump (and talk/open when something is in reach), B talk/open, X or RT buster, Y
+  special, LT lock-on, LB/RB turn the view (`turn` actions: the camera with dual-stick
+  movement, the player with tank controls), Select map, Start items, R3 re-centre. Menu: A
+  confirm, B or Start back, Start skip, LB/RB left/right (pages), X or Select left soft key, Y
+  right soft key. `soft` actions ("Back", "Skip") press whichever soft key carries that label
+  now (`Input.softLabels`, from `setSoftLabel`; the game's labels are Exit, Back, Map, Menu,
+  Skip, Title, Options, Items) and nothing if neither does. A key or button acts in the set
+  it was pressed in and stops acting when that set ends, so closing a message never fires a
+  shot. `Input.softHint` gives the controller button for each label, shown as a `<kbd>` on
+  the labels under the game. Saved bindings from before the two sets are dropped
+  (`Settings` key `bindings`).
+- The game reads its keys once per frame, 15 times a second. `Input.#sync` therefore keeps a
+  key that has just gone down visible until `Input.gameFrame` (called at every present) has
+  run once: a tap shorter than a frame used to be lost. In menus a held direction is turned
+  into one-frame presses: one at once, then after 0.4 s one in every three frames. The game's
+  own menus either act on a new press only or (title, options) repeat every second frame with
+  no delay, which made an ordinary press move the cursor twice. The map screen is exempt
+  (`Host.mapMode`): it scrolls while a key is held.
 - The game's Select key confirms, talks, opens and presses, and during play it also fires the
   buster (mask `0x100000 | g[1]` in `av`: a new press first calls `k.d()`, which starts the
   events in reach, and shoots if there were none; held, it keeps shooting — the game auto-fires
@@ -283,8 +302,9 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   controller, touch), so confirming never shoots; the buster key keeps both roles. "Playing"
   (`Input.#playing`) = the follow camera is reporting, the frame has no text on it
   (`Screen.onText`: a message or prompt) and nothing Select would act on is in reach
-  (`Mods.canInteract` -> `camera.interact`). A controller button bound to both jump and confirm
-  uses the same test, decided when it goes down: jump while playing, confirm otherwise.
+  (`Mods.canInteract` -> `camera.interact`). A controller button bound to both `jump` and
+  `interact` uses the same test, decided when it goes down: jump while playing, interact
+  otherwise.
 - Key state is a bit mask by key code: 0–9 digits, 10 `*`, 11 `#`, 16 left, 17 up, 18 right,
   19 down, 20 select, 21/22 soft keys. Default bindings (Options > Controls): jump 0, buster 9,
   special weapon 6, lock-on 3.
@@ -366,7 +386,10 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   `SettingsMenu.nav` moves a highlight (`.navfocus`) over the open tab's controls, steps sliders
   and lists, clicks buttons and switches tabs. After the menu opens or closes, controller
   buttons are ignored until all are released, so the closing press does not reach the game.
-- **Rebindable controls**: any number of keys/buttons per action, edited in the menu.
+- **Rebindable controls**: any number of keys/buttons per action, edited in the menu, with
+  separate sets for play and for menus (see "DoJa conventions that matter").
+- "Exit" on the title screen (`IApplication.terminate`) reloads the page, back to the start
+  page: an app has no reload button.
 - **On-screen controls** (`touch.js`, markup in `index.html`): on touch devices (or `?touch`) a
   virtual stick and action buttons sit over the bottom corners of the game. The stick feeds
   `Input.setStick`, which the gamepad poll treats as a controller's left stick; dragging a

@@ -2,7 +2,7 @@
 // Settings store (settings.js) and the cheat state; the modules concerned react to the changes.
 // The game is paused while it is open (main.js).
 
-import { ACTIONS, defaultBindings, bindingName } from './input.js';
+import { ACTIONS, ACTION_SETS, defaultBindings, bindingName } from './input.js';
 
 const TABS = [['video', 'Video'], ['audio', 'Audio'], ['controls', 'Controls'], ['cheats', 'Cheats'], ['extras', 'Extras']];
 
@@ -291,8 +291,16 @@ export class SettingsMenu {
   }
 
   #controls() {
-    const rows = ACTIONS.map((a) => el('tr', {}, el('td', {}, a.label),
-      this.#bindingCell('keyboard', a), this.#bindingCell('gamepad', a)));
+    // one block of rows per set: a button may be bound once in "playing" and once in "menus"
+    const rows = ACTION_SETS.flatMap(([set, title]) => [
+      el('tr', { class: 'set' }, el('th', { colSpan: 3 }, title)),
+      ...ACTIONS.filter((a) => a.set === set && !a.host).map((a) => el('tr', {}, el('td', {}, a.label),
+        this.#bindingCell('keyboard', a), this.#bindingCell('gamepad', a))),
+    ]).concat([
+      el('tr', { class: 'set' }, el('th', { colSpan: 3 }, 'Port')),
+      ...ACTIONS.filter((a) => a.host).map((a) => el('tr', {}, el('td', {}, a.label),
+        this.#bindingCell('keyboard', a), this.#bindingCell('gamepad', a))),
+    ]);
     return [
       el('p', { class: `pad ${this.padName ? 'on' : ''}` }, this.padName
         ? `Controller: ${this.padName.replace(/\s*\(.*$/, '')}`
@@ -309,8 +317,9 @@ export class SettingsMenu {
       el('table', { class: 'binds' },
         el('thead', {}, el('tr', {}, el('th', {}, 'Action'), el('th', {}, 'Keyboard'), el('th', {}, 'Controller'))),
         el('tbody', {}, ...rows)),
-      el('p', { class: 'note' }, 'Left stick: move. Right stick or mouse drag on the game: look around. '
-        + 'The phone keypad is on 0-9, - and =.'),
+      el('p', { class: 'note' }, 'Left stick: move, and move the cursor in menus (hold to repeat). Right stick or '
+        + 'mouse drag on the game: look around. "Back" and "Skip" press whichever soft key says so at that '
+        + 'moment. The phone keypad is on 0-9, - and =.'),
       el('div', { class: 'buttons' },
         el('button', { type: 'button', onclick: () => this.settings.set('keyboard', null) }, 'Reset keyboard'),
         el('button', { type: 'button', onclick: () => this.settings.set('gamepad', null) }, 'Reset controller')),

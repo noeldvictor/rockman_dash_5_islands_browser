@@ -15,6 +15,8 @@ export class FreeCamera {
   playerYaw = 0;
   /** Distance from the camera to the point it orbits this frame (0 = not orbiting); see g3d.js mixView. */
   pivotDistance = 0;
+  /** the mission's map screen is up (set by the game every frame) */
+  mapMode = false;
   /** during play: the game's Select key would open, examine or continue something */
   interact = false;
   /** While true the camera keeps its world heading when the player turns. */

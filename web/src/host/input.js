@@ -19,28 +19,54 @@ const LOCK_ON = KEY.NUM3;
 
 /**
  * Everything that can be bound to a keyboard key or a controller button (Settings > Controls).
- *   keys: phone keys the action holds down; host: an action handled by the page instead
- *   kb: default KeyboardEvent.code list; pad: default standard-mapping gamepad button indices
- * The controller defaults are laid out like Mega Man Legends on a PlayStation pad: Cross jump,
- * Square buster, Triangle special weapon, Circle confirm, L1/R1 turn, R2/L2 lock-on. Cross also
- * confirms, since the phone's Select key does nothing during play.
+ *   set:   'play' = only while playing a mission; 'menu' = only in menus, shops, dialogue and
+ *          cutscenes; none = always. The two sets are separate, so one button can mean one
+ *          thing in play and another in a menu (see Input.#set).
+ *   keys:  phone keys the action holds down
+ *   soft:  instead of fixed keys, the soft key that currently carries this label
+ *   turn:  turns the view (camera, or the player with tank controls): -1 left, 1 right
+ *   host:  an action handled by the page instead
+ *   kb:    default KeyboardEvent.code list; pad: default standard-mapping gamepad buttons
+ * The controller defaults are a modern twin-stick layout: A jump, X or RT buster, Y special
+ * weapon, LT lock-on, LB/RB turn the camera, Select map, Start items; in menus A confirms,
+ * B or Start goes back, LB/RB flip pages and Start skips a cutscene.
  */
 export const ACTIONS = [
-  { id: 'up', label: 'Forward / up', keys: [KEY.UP], kb: ['ArrowUp', 'KeyW'], pad: [12] },
-  { id: 'down', label: 'Back / down', keys: [KEY.DOWN], kb: ['ArrowDown', 'KeyS'], pad: [13] },
-  { id: 'left', label: 'Turn left', keys: [KEY.LEFT], kb: ['ArrowLeft', 'KeyA'], pad: [14, 4] },
-  { id: 'right', label: 'Turn right', keys: [KEY.RIGHT], kb: ['ArrowRight', 'KeyD'], pad: [15, 5] },
-  { id: 'jump', label: 'Jump', keys: [JUMP], kb: ['Space', 'KeyX'], pad: [0] },
-  { id: 'buster', label: 'Buster', keys: [BUSTER], kb: ['KeyZ', 'KeyJ'], pad: [2] },
-  { id: 'special', label: 'Special weapon', keys: [SPECIAL], kb: ['KeyC', 'KeyK'], pad: [3] },
-  { id: 'lock', label: 'Lock-on', keys: [LOCK_ON], kb: ['ShiftLeft', 'ShiftRight', 'KeyV', 'KeyL'], pad: [6, 7] },
-  { id: 'confirm', label: 'Confirm (menus, dialogue)', keys: [KEY.SELECT], kb: ['Enter', 'NumpadEnter'], pad: [0, 1] },
-  { id: 'soft1', label: 'Left soft key (Map, Back)', keys: [KEY.SOFT1], kb: ['KeyQ', 'Backspace'], pad: [8] },
-  { id: 'soft2', label: 'Right soft key (Items)', keys: [KEY.SOFT2], kb: ['KeyE', 'Escape'], pad: [9] },
-  { id: 'recenter', label: 'Re-centre camera', host: true, kb: ['KeyR'], pad: [11] },
+  { id: 'up', label: 'Up / forward', keys: [KEY.UP], kb: ['ArrowUp', 'KeyW'], pad: [12] },
+  { id: 'down', label: 'Down / back', keys: [KEY.DOWN], kb: ['ArrowDown', 'KeyS'], pad: [13] },
+  { id: 'left', label: 'Left', keys: [KEY.LEFT], kb: ['ArrowLeft', 'KeyA'], pad: [14] },
+  { id: 'right', label: 'Right', keys: [KEY.RIGHT], kb: ['ArrowRight', 'KeyD'], pad: [15] },
+
+  { id: 'jump', set: 'play', label: 'Jump', keys: [JUMP], kb: ['Space', 'KeyX'], pad: [0] },
+  { id: 'buster', set: 'play', label: 'Buster', keys: [BUSTER], kb: ['KeyZ', 'KeyJ'], pad: [2, 7] },
+  { id: 'special', set: 'play', label: 'Special weapon', keys: [SPECIAL], kb: ['KeyC', 'KeyK'], pad: [3] },
+  { id: 'lock', set: 'play', label: 'Lock-on', keys: [LOCK_ON], kb: ['ShiftLeft', 'ShiftRight', 'KeyV', 'KeyL'], pad: [6] },
+  // a button that both jumps and does this (A) jumps unless there is something to talk to or open
+  { id: 'interact', set: 'play', label: 'Talk / open / examine', keys: [KEY.SELECT], kb: ['Enter', 'NumpadEnter'], pad: [0, 1] },
+  { id: 'turnLeft', set: 'play', label: 'Turn the view left', turn: -1, kb: [], pad: [4] },
+  { id: 'turnRight', set: 'play', label: 'Turn the view right', turn: 1, kb: [], pad: [5] },
+  { id: 'map', set: 'play', label: 'Map', keys: [KEY.SOFT1], kb: ['KeyQ', 'Backspace'], pad: [8] },
+  { id: 'items', set: 'play', label: 'Items', keys: [KEY.SOFT2], kb: ['KeyE', 'Escape'], pad: [9] },
+  { id: 'recenter', set: 'play', label: 'Re-centre camera', host: true, kb: ['KeyR'], pad: [11] },
+
+  { id: 'confirm', set: 'menu', label: 'Confirm', keys: [KEY.SELECT], kb: ['Enter', 'NumpadEnter', 'Space', 'KeyZ'], pad: [0] },
+  { id: 'back', set: 'menu', label: 'Back / close', soft: 'Back', kb: ['Backspace', 'Escape', 'KeyX'], pad: [1, 9] },
+  { id: 'skip', set: 'menu', label: 'Skip cutscene', soft: 'Skip', kb: ['Escape'], pad: [9] },
+  { id: 'pageLeft', set: 'menu', label: 'Previous page', keys: [KEY.LEFT], kb: ['PageUp'], pad: [4] },
+  { id: 'pageRight', set: 'menu', label: 'Next page', keys: [KEY.RIGHT], kb: ['PageDown'], pad: [5] },
+  { id: 'soft1', set: 'menu', label: 'Left soft key', keys: [KEY.SOFT1], kb: ['KeyQ'], pad: [2, 8] },
+  { id: 'soft2', set: 'menu', label: 'Right soft key', keys: [KEY.SOFT2], kb: ['KeyE'], pad: [3] },
+
   { id: 'fast', label: 'Fast-forward (hold)', host: true, kb: ['Tab'], pad: [10] },
   // F1 always opens the menu as well, and so does pressing both sticks in together
   { id: 'menu', label: 'Settings menu', host: true, kb: [], pad: [16] },
+];
+
+/** The sets of ACTIONS, in the order the settings menu lists them. */
+export const ACTION_SETS = [
+  [undefined, 'Movement'],
+  ['play', 'While playing'],
+  ['menu', 'In menus, shops, dialogue and cutscenes'],
 ];
 
 /** Standard-mapping buttons that drive the settings menu while it is open. */
@@ -65,8 +91,12 @@ export function defaultBindings(device) {
   return Object.fromEntries(ACTIONS.map((a) => [a.id, [...(device === 'keyboard' ? a.kb : a.pad)]]));
 }
 
-const PAD_BUTTON_NAMES = ['A / Cross', 'B / Circle', 'X / Square', 'Y / Triangle', 'L1', 'R1', 'L2', 'R2',
+const PAD_BUTTON_NAMES = ['A / Cross', 'B / Circle', 'X / Square', 'Y / Triangle', 'LB / L1', 'RB / R1', 'LT / L2', 'RT / R2',
   'Select / Share', 'Start / Options', 'L3', 'R3', 'D-pad up', 'D-pad down', 'D-pad left', 'D-pad right', 'Home'];
+
+/** Short names, for the hints on the soft-key labels. */
+const PAD_BUTTON_SHORT = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Select', 'Start', 'L3', 'R3', '↑', '↓', '←', '→', 'Home'];
+export const padButtonShort = (index) => PAD_BUTTON_SHORT[index] ?? `B${index}`;
 
 /** Display name of a bound key or button. */
 export function bindingName(device, value) {
@@ -76,6 +106,11 @@ export function bindingName(device, value) {
 }
 
 const MOVES = new Set(['up', 'down', 'left', 'right']);
+const DIRECTIONS = [KEY.LEFT, KEY.UP, KEY.RIGHT, KEY.DOWN];
+// Menus: a held direction reaches the game as one-frame presses: one at once, then, after this
+// long, one in every so many game frames (see Input.gameFrame).
+const KEY_REPEAT_DELAY = 400;
+const KEY_REPEAT_FRAMES = 3;
 
 /**
  * The physical key of a keyboard event. Some sources (Android key events without a scan code,
@@ -174,8 +209,20 @@ export class Input {
   #menuHeld = new Map(); // command -> time of its next repeat
   /** the game's last frame had text on it (set by Screen) */
   textShown = false;
-  #selectSent = false; // whether the game currently sees its Select key down (see #syncSelect)
-  #padRole = new Map(); // held button bound to both jump and confirm -> which one it is this press
+  #padRole = new Map(); // held button bound to both jump and interact -> which one it is this press
+  #padSet = new Map(); // held button -> the set that was active when it went down
+  #kbHeld = new Map(); // held key code -> the actions it pressed
+  #lastSet = 'menu';
+  #softHeld = new Map(); // `${action id}|${source}` -> the soft key a "soft" action is holding
+  #turnHeld = new Map(); // turn action id -> Set of sources holding it
+  #gap = new Set(); // direction keys shown as up for this game frame (menu key repeat)
+  #repeat = new Map(); // held direction key -> { since, frames }
+  #fresh = new Set(); // keys that went down since the last game frame
+  #padBindings = {}; // action id -> controller buttons
+  /** What the game has written on its two soft keys (set by the page). */
+  softLabels = ['', ''];
+  /** Called when the hint for a soft key may have changed (set, labels, bindings, controller). */
+  onHints = null;
   #combo = false; // the menu combo is being held
   #padWait = false; // ignore controller buttons until they have all been released
   /** Called for page-side actions ('recenter', 'fast', 'menu'): (id, down) => void */
@@ -191,22 +238,28 @@ export class Input {
     target.addEventListener('keydown', (e) => {
       if (!this.#enabled || e.ctrlKey || e.metaKey || e.altKey) return;
       const code = codeOf(e);
-      const actions = this.#keyboard.get(code);
-      if (!actions && KEYPAD[code] === undefined) return;
+      const bound = this.#keyboard.get(code);
+      if (!bound && KEYPAD[code] === undefined) return;
       e.preventDefault();
-      if (e.repeat) return;
+      if (e.repeat || this.#kbHeld.has(code)) return;
       const source = `kb:${code}`;
-      if (actions) for (const a of actions) this.#actionDown(a, source);
-      else this.press(KEYPAD[code], source);
+      if (bound) {
+        // the actions of the set that is active now; they are what the key lets go of later
+        const set = this.#set();
+        const actions = bound.filter((a) => !a.set || a.set === set);
+        this.#kbHeld.set(code, actions);
+        for (const a of actions) this.#actionDown(a, source);
+      } else this.press(KEYPAD[code], source);
     });
     target.addEventListener('keyup', (e) => {
       const code = codeOf(e);
-      const actions = this.#keyboard.get(code);
-      if (!actions && KEYPAD[code] === undefined) return;
+      const actions = this.#kbHeld.get(code);
+      if (!actions && KEYPAD[code] === undefined && !this.#keyboard.has(code)) return;
       e.preventDefault();
       const source = `kb:${code}`;
+      this.#kbHeld.delete(code);
       if (actions) for (const a of actions) this.#actionUp(a, source);
-      else this.release(KEYPAD[code], source);
+      else if (KEYPAD[code] !== undefined) this.release(KEYPAD[code], source);
     });
     target.addEventListener('blur', () => this.releaseAll());
     // Poll controllers every display frame, independently of the game's own frame rate.
@@ -240,6 +293,80 @@ export class Input {
     };
     this.#keyboard = build(keyboard, 'keyboard');
     this.#gamepad = build(gamepad, 'gamepad');
+    this.#padBindings = { ...defaultBindings('gamepad'), ...(gamepad ?? {}) };
+    this.onHints?.();
+  }
+
+  /**
+   * Which set of actions applies now: 'play' while a mission is being played (the follow
+   * camera is reporting and no message or prompt is up), 'menu' everywhere else.
+   */
+  #set() {
+    const cam = this.camera;
+    return cam && cam.following && !this.textShown ? 'play' : 'menu';
+  }
+
+  /** The game changed what a soft key says (0 = left, 1 = right). */
+  setSoftLabel(index, label) {
+    this.softLabels[index] = (label ?? '').replace(/\0/g, '').trim();
+    this.onHints?.();
+  }
+
+  /** The soft key (0 or 1) that currently carries `label`, or -1. */
+  #softWith(label) {
+    return this.softLabels.findIndex((l) => l.toLowerCase() === label.toLowerCase());
+  }
+
+  /**
+   * The controller button to show next to a soft-key label: the one that does what the label
+   * says in the current set. null when no controller is connected or nothing is bound.
+   */
+  softHint(index) {
+    const label = this.softLabels[index];
+    if (!this.#padName || !label) return null;
+    const set = this.#set();
+    const key = index === 0 ? KEY.SOFT1 : KEY.SOFT2;
+    const mine = ACTIONS.filter((a) => !a.set || a.set === set);
+    const action = mine.find((a) => a.soft && a.soft.toLowerCase() === label.toLowerCase() && this.#padBindings[a.id]?.length)
+      ?? mine.find((a) => a.keys?.includes(key) && this.#padBindings[a.id]?.length);
+    return action ? this.#padBindings[action.id][0] : null;
+  }
+
+  /**
+   * Called once per game frame, after the game has read the keys for it.
+   *
+   * Keys that went down since the last frame have now been seen, so they may go up (#sync).
+   *
+   * In menus, a held direction is turned into one-frame presses: the first at once, then,
+   * after a pause, one in every few frames. The game's own menus either act on a new press
+   * only, so holding did nothing, or repeat from the second frame on with no pause (title,
+   * options), so an ordinary press of a tenth of a second moved the cursor twice. Not on the
+   * map screen, which scrolls for as long as a key is held.
+   */
+  gameFrame() {
+    const fresh = this.#fresh;
+    this.#fresh = new Set();
+    for (const key of fresh) this.#sync(key);
+    const pulsing = this.#enabled && this.#set() === 'menu' && !this.camera?.mapMode;
+    const now = performance.now();
+    for (const key of DIRECTIONS) {
+      const held = (this.#sources.get(key)?.size ?? 0) > 0;
+      let gap = false;
+      if (!held || !pulsing) this.#repeat.delete(key);
+      else {
+        const r = this.#repeat.get(key);
+        if (!r) {
+          this.#repeat.set(key, { since: now, frames: 0 });
+          gap = true; // it has had its frame
+        } else if (now - r.since < KEY_REPEAT_DELAY) gap = true;
+        else gap = r.frames++ % KEY_REPEAT_FRAMES !== 0;
+      }
+      if (gap !== this.#gap.has(key)) {
+        if (gap) this.#gap.add(key);
+        else this.#gap.delete(key);
+        this.#sync(key);
+      }
+    }
   }
 
   /** Position of the on-screen stick (touch.js), each axis -1..1; 0, 0 when let go. */
@@ -316,6 +443,21 @@ export class Input {
       this.#syncMove();
       return;
     }
+    if (action.soft) {
+      // whichever soft key says so now; nothing if neither does
+      const index = this.#softWith(action.soft);
+      if (index < 0) return;
+      const key = index === 0 ? KEY.SOFT1 : KEY.SOFT2;
+      this.#softHeld.set(`${action.id}|${source}`, key);
+      this.press(key, `${source}:${action.id}`);
+      return;
+    }
+    if (action.turn) {
+      let held = this.#turnHeld.get(action.id);
+      if (!held) this.#turnHeld.set(action.id, (held = new Set()));
+      held.add(source);
+      return;
+    }
     if (!action.host) {
       for (const k of action.keys) this.press(k, source);
       return;
@@ -333,6 +475,18 @@ export class Input {
       this.#syncMove();
       return;
     }
+    if (action.soft) {
+      const id = `${action.id}|${source}`;
+      const key = this.#softHeld.get(id);
+      if (key === undefined) return;
+      this.#softHeld.delete(id);
+      this.release(key, `${source}:${action.id}`);
+      return;
+    }
+    if (action.turn) {
+      this.#turnHeld.get(action.id)?.delete(source);
+      return;
+    }
     if (!action.host) {
       for (const k of action.keys) this.release(k, source);
       return;
@@ -344,26 +498,42 @@ export class Input {
   press(key, source = 'api') {
     let held = this.#sources.get(key);
     if (!held) this.#sources.set(key, (held = new Set()));
-    const was = held.size > 0;
     held.add(source);
-    if (key === KEY.SELECT) {
-      this.#syncSelect();
-      return;
-    }
-    if (was) return;
-    this.#state |= 1 << key;
-    this.handler?.(0, key);
+    this.#sync(key);
   }
 
   release(key, source = 'api') {
     const held = this.#sources.get(key);
-    if (!held || !held.delete(source) || held.size > 0) return;
-    if (key === KEY.SELECT) {
-      this.#syncSelect();
-      return;
+    if (!held || !held.delete(source)) return;
+    this.#sync(key);
+  }
+
+  /**
+   * Tell the game about a key if what it should see has changed. That is "held by anything",
+   * with two exceptions:
+   * - Select. In the game it confirms, talks and opens, and during play it also fires the
+   *   buster. Here it only does the first: while playing, a held Select is not passed on, so
+   *   nothing a player confirms with (keyboard, controller, touch) shoots. The buster key
+   *   still does both, as in the game.
+   * - a direction between the presses of the menu key repeat (gameFrame).
+   * A key that has just gone down stays down until the game has run a frame with it: the game
+   * reads the keys once per frame, 15 times a second, and a quick tap would otherwise be over
+   * before it looked.
+   */
+  #sync(key) {
+    let want = (this.#sources.get(key)?.size ?? 0) > 0;
+    if (want && key === KEY.SELECT) want = !this.#playing();
+    if (want && this.#gap.has(key)) want = false;
+    const bit = 1 << key;
+    if (want === ((this.#state & bit) !== 0)) return;
+    if (want) {
+      this.#state |= bit;
+      this.#fresh.add(key);
+    } else {
+      if (this.#fresh.has(key) && this.#enabled) return; // not seen yet: gameFrame() lets it go
+      this.#state &= ~bit;
     }
-    this.#state &= ~(1 << key);
-    this.handler?.(1, key);
+    this.handler?.(want ? 0 : 1, key);
   }
 
   /**
@@ -376,33 +546,18 @@ export class Input {
     return !!cam && cam.following && !cam.interact && !this.textShown;
   }
 
-  /**
-   * The game's Select key confirms, talks and opens, and during play it also fires the buster.
-   * Here it only does the first: while playing, a held Select is not passed on, so nothing a
-   * player confirms with (keyboard, controller, touch) shoots. The buster key still does both,
-   * as in the game. Called on every change and every display frame.
-   */
-  #syncSelect() {
-    const held = (this.#sources.get(KEY.SELECT)?.size ?? 0) > 0;
-    const want = held && !this.#playing();
-    if (want === this.#selectSent) return;
-    this.#selectSent = want;
-    if (want) this.#state |= 1 << KEY.SELECT;
-    else this.#state &= ~(1 << KEY.SELECT);
-    this.handler?.(want ? 0 : 1, KEY.SELECT);
-  }
-
   releaseAll() {
     for (const [key, held] of this.#sources) {
       if (held.size === 0) continue;
       held.clear();
-      if (key === KEY.SELECT) {
-        this.#syncSelect();
-        continue;
-      }
-      this.#state &= ~(1 << key);
-      this.handler?.(1, key);
+      this.#sync(key);
     }
+    this.#kbHeld.clear();
+    this.#softHeld.clear();
+    this.#turnHeld.clear();
+    this.#padSet.clear();
+    this.#repeat.clear();
+    this.#gap.clear();
     for (const [id, held] of this.#hostDown) {
       if (held.size === 0) continue;
       held.clear();
@@ -435,8 +590,19 @@ export class Input {
     let analogHeading = NaN;
     let analogSpeed = 1;
     let anyButton = -1;
-    this.#syncSelect();
+    this.#sync(KEY.SELECT);
     const playing = this.#playing();
+    const set = this.#set();
+    if (set !== this.#lastSet) {
+      // play <-> menu: what a held key meant in the old set ends here; it has to be pressed
+      // again to mean something in the new one (closing a message must not fire a shot)
+      this.#lastSet = set;
+      for (const [code, held] of this.#kbHeld) {
+        for (const a of held) if (a.set) this.#actionUp(a, `kb:${code}`);
+        this.#kbHeld.set(code, held.filter((a) => !a.set));
+      }
+      this.onHints?.();
+    }
     const heldNow = new Set();
     for (const pad of pads) {
       if (!pad.virtual) name ??= pad.id;
@@ -445,27 +611,33 @@ export class Input {
         if (anyButton < 0) anyButton = index;
         heldNow.add(index);
         const bound = this.#gamepad.get(index) ?? [];
-        // A button that both jumps and confirms (A / Cross by default) jumps during play and
-        // confirms everywhere else: in play the game fires the buster on its Select key too.
-        // Which of the two it is gets decided when it goes down. A confirm ends when play
-        // resumes under the still-held button, so closing a message does not fire a shot.
-        const both = bound.some((a) => a.id === 'jump') && bound.some((a) => a.id === 'confirm');
-        if (both) {
+        // a button acts in the set it was pressed in, and stops acting when that set ends
+        if (!this.#padSet.has(index)) this.#padSet.set(index, set);
+        const pressedIn = this.#padSet.get(index);
+        // A button that both jumps and interacts (A by default) jumps when the player is free
+        // to, and talks or opens when there is something in reach. Which of the two it is
+        // gets decided when it goes down; an interaction ends when play resumes under the
+        // still-held button.
+        const both = bound.some((a) => a.id === 'jump') && bound.some((a) => a.id === 'interact');
+        if (both && pressedIn === 'play') {
           const role = this.#padRole.get(index);
-          if (!role) this.#padRole.set(index, playing ? 'jump' : 'confirm');
-          else if (role === 'confirm' && playing) this.#padRole.set(index, 'spent');
+          if (!role) this.#padRole.set(index, playing ? 'jump' : 'interact');
+          else if (role === 'interact' && playing) this.#padRole.set(index, 'spent');
         }
         const role = this.#padRole.get(index);
         for (const a of bound) {
-          if (both && (a.id === 'jump' || a.id === 'confirm') && a.id !== role) continue;
+          if (a.set && (a.set !== pressedIn || a.set !== set)) continue;
+          if (both && (a.id === 'jump' || a.id === 'interact') && a.id !== role) continue;
           actions.add(a);
         }
       });
     }
     for (const index of this.#padRole.keys()) if (!heldNow.has(index)) this.#padRole.delete(index);
+    for (const index of this.#padSet.keys()) if (!heldNow.has(index)) this.#padSet.delete(index);
     if (name !== this.#padName) {
       this.#padName = name;
       this.onGamepadChange?.(name);
+      this.onHints?.();
     }
     if (this.#capture) {
       // rebinding: wait for all buttons to be released, then take the next one pressed
@@ -530,6 +702,13 @@ export class Input {
         if (y < -STICK_DEADZONE) down.add(KEY.UP);
         if (y > STICK_DEADZONE) down.add(KEY.DOWN);
       }
+    }
+    // turn-the-view buttons: the camera with dual-stick movement, the player with tank controls
+    let turn = 0;
+    for (const a of ACTIONS) if (a.turn && (this.#turnHeld.get(a.id)?.size ?? 0) > 0) turn += a.turn;
+    if (turn && cam && cam.following) {
+      if (this.directStick) cam.look(turn * LOOK_YAW_SPEED * dt, 0);
+      else down.add(turn < 0 ? KEY.LEFT : KEY.RIGHT);
     }
     // while steering with the stick, the camera holds its heading instead of swinging behind
     cam?.setHoldWorld(steering);

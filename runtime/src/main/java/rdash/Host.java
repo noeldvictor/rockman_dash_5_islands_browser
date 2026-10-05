@@ -120,6 +120,10 @@ public final class Host {
     @JSBody(params = {"distance"}, script = "globalThis.DOJA.camera.pivotDistance = distance;")
     public static native void cameraPivot(float distance);
 
+    /** Tells the host whether the mission's map screen is up (it scrolls while a key is held). */
+    @JSBody(params = {"on"}, script = "globalThis.DOJA.camera.mapMode = on;")
+    public static native void mapMode(boolean on);
+
     /** Draw distance option: factor on the far plane the mission's camera culls against. */
     @JSBody(script = "return globalThis.DOJA.gfx.drawDistance();")
     public static native float drawDistance();

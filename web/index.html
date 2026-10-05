@@ -61,6 +61,7 @@
     #settings .binds { width: 100%; border-collapse: collapse; margin-top: .4rem; }
     #settings .binds th { text-align: left; color: #6f7889; font-weight: 500; }
     #settings .binds th, #settings .binds td { padding: .18rem .5rem .18rem 0; border-bottom: 1px solid #1c2230; }
+    #settings .binds tr.set th { padding-top: .7rem; color: #e6c15a; }
     #settings .chip { display: inline-flex; align-items: center; gap: .15rem; margin: .1rem .25rem .1rem 0;
       padding: 0 0 0 .45rem; border: 1px solid #2f3747; border-radius: .4rem; background: #171c27; }
     #settings .chip .x { border: none; background: none; padding: 0 .35rem; color: #6f7889; }
@@ -74,6 +75,8 @@
     #soft span { cursor: pointer; min-width: 5rem; user-select: none; -webkit-user-select: none; touch-action: none; }
     #soft span:last-child { text-align: right; }
     #soft span.down { color: #e6c15a; }
+    #soft kbd { font: 600 .72rem system-ui, sans-serif; padding: .05rem .35rem; border-radius: .35rem;
+      border: 1px solid #3a4458; background: #171c27; color: #d7dce5; vertical-align: .05rem; }
     /* toolbar over the game: in fullscreen (appears when the pointer moves) and on touch devices */
     #overlay { display: none; position: absolute; top: .4rem; right: .4rem; gap: .3rem; z-index: 3;
       opacity: 0; pointer-events: none; transition: opacity .3s; line-height: 1.2; }

@@ -2,7 +2,7 @@ import { Resources } from './host/resources.js';
 import { Screen } from './host/screen.js';
 import { Img } from './host/g2d.js';
 import { g3dFactory } from './host/g3d.js';
-import { Input } from './host/input.js';
+import { Input, padButtonShort } from './host/input.js';
 import { Audio } from './host/audio.js';
 import { Net } from './host/net.js';
 import { FreeCamera } from './host/camera.js';
@@ -95,7 +95,25 @@ async function start(variant) {
   const input = new Input(window);
   const camera = new FreeCamera();
   input.camera = camera;
-  screen.onText = (shown) => { input.textShown = shown; };
+  // once per game frame: whether it had text on it (a message or prompt), and the key repeat
+  screen.onText = (shown) => {
+    input.textShown = shown;
+    input.gameFrame();
+  };
+  // the soft-key labels under the game, with the controller button that does each
+  input.onHints = () => {
+    [$('soft1'), $('soft2')].forEach((span, index) => {
+      const label = input.softLabels[index];
+      const button = input.softHint(index);
+      span.replaceChildren();
+      if (label && button !== null) {
+        const hint = document.createElement('kbd');
+        hint.textContent = padButtonShort(button);
+        span.append(hint, ' ');
+      }
+      span.append(label);
+    });
+  };
   const cheats = new Cheats();
   const applyBindings = () => input.setBindings(settings.get('keyboard'), settings.get('gamepad'));
   applyBindings();
@@ -213,12 +231,12 @@ async function start(variant) {
     app: {
       param: (name) => resources.jam[name] ?? null,
       terminate: () => {
+        // "Exit" on the title screen: back to the start page (an app has no reload button)
         $('status').hidden = false;
-        $('status').textContent = 'The game has exited. Reload the page to play again.';
+        $('status').textContent = 'The game has exited.';
+        setTimeout(() => location.reload(), 400);
       },
-      softLabel: (key, label) => {
-        $(key === 0 ? 'soft1' : 'soft2').textContent = label || '';
-      },
+      softLabel: (key, label) => input.setSoftLabel(key, label),
       log: (msg) => console.info('[game]', msg),
       onFrame: (cb) => {
         // the game thread waits here once per frame; while paused it simply is not woken
