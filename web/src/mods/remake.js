@@ -200,6 +200,18 @@ export class Remake {
       const skin = info.skin[index++];
       if (!skin) return;
       const geometry = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      if (skin.drop?.length) {
+        // bridges between parts that only touch in the rest pose: left out (see modelview.js)
+        const gone = new Set(skin.drop);
+        const index = geometry.index;
+        const total = index ? index.count : geometry.attributes.position.count;
+        const kept = [];
+        for (let k = 0; k + 2 < total; k += 3) {
+          if (gone.has(k / 3)) continue;
+          kept.push(index ? index.getX(k) : k, index ? index.getX(k + 1) : k + 1, index ? index.getX(k + 2) : k + 2);
+        }
+        geometry.setIndex(kept);
+      }
       const count = geometry.attributes.position.count;
       const bones = bytesOf(skin.bones);
       const weights = bytesOf(skin.weights);

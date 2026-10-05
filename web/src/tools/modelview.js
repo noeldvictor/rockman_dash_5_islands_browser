@@ -285,8 +285,9 @@ function distance2(p, a, b, c) {
  * share of both, so that the new, single skin bends there instead of tearing.
  * @param {object} model  the parsed phone model (rest pose)
  * @param {THREE.Object3D} scene  the remade model, its world matrices in phone model space
- * @returns {{bones: string, weights: string}[]} per mesh, in traverse order: two bone indices
- *          per vertex and the first one's weight (0..255), base64
+ * @returns {{bones: string, weights: string, drop?: number[]}[]} per mesh, in traverse order:
+ *          two bone indices per vertex and the first one's weight (0..255), base64; and the
+ *          triangles to leave out (see below)
  */
 let idRenderer = null;
 
@@ -347,6 +348,14 @@ function skinOf(model, scene) {
   const hidden = [...pieces.keys()].filter((bone) => !seen.has(bone));
   if (hidden.length < pieces.size) for (const bone of hidden) pieces.delete(bone);
   skinOf.hidden = hidden.length < pieces.size + hidden.length ? hidden : [];
+  // Two pieces are joined when one hangs from the other in the phone model's skeleton (bones
+  // without geometry of their own are passed over), or when both hang from nothing.
+  const above = (bone) => {
+    let parent = model.boneParents[bone];
+    while (parent >= 0 && !pieces.has(parent)) parent = model.boneParents[parent];
+    return parent;
+  };
+  const joined = (a, b) => a === b || above(a) === b || above(b) === a || (above(a) < 0 && above(b) < 0);
   const blend = (model.bounds.max[1] - model.bounds.min[1]) * 0.03; // width of a joint
   const b64 = (u8) => { let text = ''; for (let i = 0; i < u8.length; i += 0x8000) text += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(text); };
   const out = [];
@@ -359,21 +368,50 @@ function skinOf(model, scene) {
     for (let i = 0; i < position.count; i++) {
       v.fromBufferAttribute(position, i).applyMatrix4(o.matrixWorld);
       const p = [v.x, v.y, v.z];
-      let first = -1, second = -1, d1 = Infinity, d2 = Infinity;
+      const near = [];
       for (const [bone, tris] of pieces) {
         let d = Infinity;
         for (const [a, b, c] of tris) d = Math.min(d, distance2(p, a, b, c));
-        d = Math.sqrt(d);
-        if (d < d1) { second = first; d2 = d1; first = bone; d1 = d; } else if (d < d2) { second = bone; d2 = d; }
+        near.push([Math.sqrt(d), bone]);
       }
-      const share = second < 0 ? 1 : Math.min(1, 0.5 + (d2 - d1) / (2 * blend));
+      near.sort((x, y) => x[0] - y[0]);
+      const [d1, first] = near[0];
+      // shared only with a piece it is joined to: a hand resting on a thigh is not a joint
+      const other = near.find(([, bone]) => bone !== first && joined(first, bone));
+      const share = other ? Math.min(1, 0.5 + (other[0] - d1) / (2 * blend)) : 1;
       bones[i * 2] = first;
-      bones[i * 2 + 1] = second < 0 ? first : second;
+      bones[i * 2 + 1] = other ? other[1] : first;
       weights[i] = Math.round(share * 255);
     }
-    out.push({ bones: b64(bones), weights: b64(weights) });
+    // Where two parts that are not joined touch in the rest pose (a claw against a leg, an arm
+    // against the body), the model that was built has them fused. Those bridges are left out:
+    // triangles whose corners belong to pieces with no joint between them.
+    const index = o.geometry.index;
+    const at = (k) => (index ? index.getX(k) : k);
+    const count = index ? index.count : position.count;
+    const drop = [];
+    for (let k = 0; k + 2 < count; k += 3) {
+      const a = bones[at(k) * 2], b = bones[at(k + 1) * 2], c = bones[at(k + 2) * 2];
+      if (!joined(a, b) || !joined(b, c) || !joined(a, c)) drop.push(k / 3);
+    }
+    out.push({ bones: b64(bones), weights: b64(weights), ...(drop.length ? { drop } : {}) });
   });
   return out;
+}
+
+/** `geometry` with the listed triangles (indices into its triangle list) left out. */
+function withoutTriangles(geometry, drop) {
+  if (!drop?.length) return geometry;
+  const gone = new Set(drop);
+  const index = geometry.index;
+  const count = index ? index.count : geometry.attributes.position.count;
+  const kept = [];
+  for (let k = 0; k + 2 < count; k += 3) {
+    if (gone.has(k / 3)) continue;
+    kept.push(index ? index.getX(k) : k, index ? index.getX(k + 1) : k + 1, index ? index.getX(k + 2) : k + 2);
+  }
+  geometry.setIndex(kept);
+  return geometry;
 }
 
 /**
@@ -402,7 +440,7 @@ window.poseCheck = async (options) => {
   scene.traverse((o) => {
     if (!o.isMesh) return;
     const skin = options.skin[index++];
-    const geometry = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    const geometry = withoutTriangles(o.geometry.clone().applyMatrix4(o.matrixWorld), skin.drop);
     meshes.push({ geometry, base: geometry.attributes.position.array.slice(), bones: bytes(skin.bones), weights: bytes(skin.weights), material: o.material });
   });
   const posed = new THREE.Group();

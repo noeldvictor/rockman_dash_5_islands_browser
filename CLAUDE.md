@@ -187,9 +187,15 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
   game draws the phone's own triangles for it next to the remade model. The installer writes
   `poses.png` (the phone model and the remade one in the same poses of the phone animation:
   `poseCheck`; enemy and boss animations are one file per action, `<e|b><NN>_<action>_<part>.mtr`)
-  so the skinning can be judged without reaching the model in the game. Known limit: the skin
-  is one connected surface, so where a part swings far from its neighbour (a hatch opening)
-  the surface between them stretches.
+  so the skinning can be judged without reaching the model in the game. Two pieces count as
+  joined when one hangs from the other in the phone skeleton (bones without geometry passed
+  over) or both hang from nothing; a vertex is shared only between joined pieces, and
+  triangles whose corners belong to pieces that are not joined are left out (`drop` in the
+  manifest). Tripo fuses parts that touch in the rest pose (a claw against a leg, a cape
+  against the body) and those bridges stretched into webs. Known limits: where a part swings
+  far from the piece it is joined to (a hatch opening) the skin between them stretches; and a
+  model whose limbs are not where the phone model's are cannot be skinned this way at all
+  (Denise: thinner arms in another place, so hands and forearms followed the wrong pieces).
 - One model in several colours: the installer recolours the remade picture for each further
   texture of the phone model (`recolour`: per hue, the turn and the change of saturation and
   value between the two phone textures, applied in proportion to a texel's saturation), as
@@ -200,13 +206,19 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
 - Checking and rejecting. Every result has to be looked at: `compare.png` (phone model,
   redraws, new model), `fit.png` and `poses.png`. One that is wrong is kept out of the game
   with an empty file `build/ai/models/<name>/skip` followed by `install_remake.py <name>`.
-  Rejected so far: `e05_1` (an enemy's shield, an L-shaped plate that came back as a cleaver)
-  and `o16` (a rock block that came back as an open tray), both thin or plain shapes the image
-  model had little to hold on to; and `kobun` from the first test (one picture, mid-stride).
+  Rejected: `e05_1` (an enemy's shield, an L-shaped plate that came back as a cleaver) and
+  `o16` (a rock block that came back as an open tray), both thin or plain shapes the image
+  model had little to hold on to; `denish` (Denise: the redraw changed her hair and build,
+  and her limbs do not follow the phone animation); and `kobun` from the first test (one
+  picture, mid-stride). In the game after the full pass (2026-10-05): 34 phone models, 59
+  entries with recolours — props `o00`-`o05`, `o07` (three doors), `o09`, `o10`, `o13_1`,
+  `o20`; every enemy `e00`-`e08` with `e01_1` and `e06_1`; the bosses `b00`-`b03` with the
+  parts `b02_1`-`b02_5`; the Flutter; Data and Barrell. About 34 MB under
+  `web/public/remake/`. Of the 4,805 credits about 325 are left.
   `phone_models.py` renders a model that has face patterns with its animation's first frame,
   or it has no face at all (Data and Denise were first made faceless that way).
 - Not remade: the main characters (the Legends 2 models stand in for them and have
-  expressions; a Tripo model has one fixed face, which Data and Denise now have) and the
+  expressions; a Tripo model has one fixed face, as Data's now is) and the
   player's separate body parts; the pillar `o06` and the icicle `o12` (left out to save
   credits); a boss's cape piece `b01_1`. Not worth remaking: flat textured pieces (walls
   `o17`/`o18`, the laser gate, floor tiles, the lava jet), which the texture packs cover.
@@ -666,6 +678,10 @@ Keep this section current.
   the map, random input), loading and comparing the picture, and by replaying the same input
   to an identical picture; loading a state after the game left that mission and freed its
   resources is covered only by the self-check, not seen in the game.
+- Remade models: checked against the phone models in fit and pose pictures, all of them; seen
+  in the game only where the two reachable saves go (Valley Road: `e00`, `e01`, the tree,
+  the keyhole block; island 5's first rooms: doors, `e05`, `e06`). The bosses, the Flutter,
+  Data and Barrell have not been seen in the game.
 - Legends 2 replacement: MegaMan, Roll, Tron and Teisel are replaced in the New Game intro
   cutscenes and the in-game player (assembled from parts) is replaced during play; poses match
   the phone models' at the same frame. The Servbot mapping has not been seen in a test. Faces
