@@ -79,7 +79,7 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 | `tools/trailer/` | `record.sh` records gameplay clips with `play.mjs` (scripted keys, a simulated controller, settings switched per clip); `edit.sh` cuts them with stills from `docs/`, captions and the title music into `build/trailer/trailer.mp4` |
 | `tools/d4d/`, `tools/mbac/`, `tools/mfi/` | Dump/validate scripts for the map, model and sound formats (`check_all.mjs` in each; `tools/mfi/render.mjs` renders a `.mld` to WAV, `verify.mjs` self-checks the synth) |
 | `tools/soundfont/` | `extract.mjs`: cut the instruments the music uses out of a General MIDI SoundFont into `web/public/soundfont/` |
-| `tools/ai/` | Optional AI helpers that run on a ComfyUI server (`comfy.py`, address in `$COMFY`): `textures.py` builds the AI-upscaled texture pack, `music.py` + `mfi_abc.mjs` have YuE 2 perform a tune from its score (experimental) |
+| `tools/ai/` | Optional AI helpers. On a ComfyUI server (`comfy.py`, address in `$COMFY`): `textures.py` builds the AI-upscaled texture pack, `music.py` + `mfi_abc.mjs` have YuE 2 perform a tune from its score (experimental). With the Tripo API: `phone_models.py`, `tripo.py`, `remake.py` (see "AI model remake") |
 | `tools/mml2/` | Mega Man Legends 2 (PSX) disc extraction: models, textures, music, sound (formats documented in each script's header); `install.py` copies what the host uses into `web/public/mml2/` |
 | `docs/` | Screenshots used by `README.md` |
 | `build/` | Scratch output, git-ignored |
@@ -131,7 +131,7 @@ on its own. To read the game's logic, decompile the jar with CFR (`java -jar cfr
 original/localized/RockmanDASH.jar --outputdir build/decomp`); class and method names are
 obfuscated (`a`…`bt`).
 
-## AI model remake (planned, nothing generated yet)
+## AI model remake (test batch made; not in the game yet)
 
 The user wants the game's 67 models remade with Tripo (tripo3d.ai). Decided so far, 2026-10-05:
 
@@ -152,6 +152,24 @@ The user wants the game's 67 models remade with Tripo (tripo3d.ai). Decided so f
   retarget 10 per animation; the account had 4,805 credits.
 - Generated models are derived from the game's designs: like the AI texture pack they are made
   locally by a script and never committed.
+- Tools (`.venv/bin/python`, dev server running): `tools/ai/phone_models.py` renders phone
+  models to pictures through `web/modelview.html` (a dev-only page with the game's own parsers;
+  `--views sheet` makes a contact sheet of all of them); `tools/ai/tripo.py` is the API client
+  (upload, submit, poll, download; retries when the service is busy: only a few tasks run at a
+  time); `tools/ai/remake.py <model>` runs the chain and writes `build/ai/models/<model>/`
+  (`phone_hero.png`, `art.png`, `model.glb`, `compare.png`, `tasks.json`). A step that was paid
+  for is never started twice: the task recorded in `tasks.json` is fetched again instead.
+- Test batch (180 credits; `build/ai/models/test_batch.png`): the car `o01`, the enemy `e01_0`
+  and the Servbot `kobun`. Redraw with `banana2` (10 credits) then image-to-model `v3.1` with
+  `smart_low_poly`, `face_limit` 8000, detailed texture, no PBR (50 credits): about 9,000
+  triangles and one 4096x4096 texture each, true to the phone designs. Seen so far: only the
+  side in the picture is reliable (the car was rendered from behind, so its front was invented:
+  feed several views, or make sure the picture shows the front); the result faces +x; a
+  character comes out in the pose of the picture, so rigging needs a T-pose picture first
+  (image-to-image has a `t_pose` template).
+- Still to do before any of it shows in the game: fitting a new model to the phone model's
+  size, position and facing; a replacement path for static props (by content key, like the
+  Legends 2 characters); cutting or rigging animated models to follow the phone animation.
 
 ## Game data
 
