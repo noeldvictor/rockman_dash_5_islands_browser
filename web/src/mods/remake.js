@@ -22,6 +22,8 @@
 // nearest, shared between two near a joint) and here each piece is moved by its phone bone:
 // by `pose * rest^-1`, the bone's movement away from the pose the model was made in. That is
 // ordinary skinning with the phone's bones, done by three.js in the vertex shader.
+// Pieces that could not be seen when the model was made (`hidden`: a pilot under a closed
+// hatch) have no counterpart in it; the phone's own triangles are drawn for those.
 // A model without `skin` is rigid and simply drawn under the game's model matrix.
 
 import * as THREE from 'three';
@@ -189,6 +191,8 @@ export class Remake {
     }
     // moves in pieces: every mesh brought into the file's root space, with its vertices' bones
     variant.bones = info.bones;
+    // phone pieces the remade model has nothing for (figure.js draws those itself)
+    variant.hidden = info.hidden?.length ? new Set(info.hidden) : null;
     variant.meshes = [];
     let index = 0;
     gltf.scene.traverse((o) => {

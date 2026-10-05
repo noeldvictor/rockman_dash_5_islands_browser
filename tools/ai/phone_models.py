@@ -83,6 +83,21 @@ def textures_of(model):
     return [single] if single else []
 
 
+def poses_of(stem, limit=6):
+    """A few poses of a model's animations: [{action: base64 action table, index, where}].
+
+    A character has one table <name>.mtr(a) with several actions; an enemy or boss part
+    <e|b><NN>_<part> has one file per action, <e|b><NN>_<action>_<part>.mtr.
+    """
+    m = re.fullmatch(r'([be]\d\d)_(\d)', stem)
+    if m:
+        files = sorted({os.path.basename(f): f for pattern in ('localized/jar', 'localized/sp/data', 'sdcard/*')
+                        for f in glob.glob(os.path.join(ASSETS, pattern, f'{m.group(1)}_??_{m.group(2)}.mtr'))}.values())
+        return [{'action': b64(f), 'index': 0, 'where': 0.5} for f in files[:limit]]
+    table = find(stem + '.mtr') or find(stem + '.mtra')
+    return [{'action': b64(table), 'index': i, 'where': 0.5} for i in range(limit)] if table else []
+
+
 def b64(path):
     with open(path, 'rb') as f:
         return base64.b64encode(f.read()).decode()

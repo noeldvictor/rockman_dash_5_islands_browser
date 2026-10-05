@@ -10,7 +10,8 @@ For every model that has been remade (build/ai/models/<name>/model.glb, see rema
     comparing pictures of the two from three sides, in web/modelview.html);
   - shrink its texture (Tripo's are 4096x4096; the handhelds want far less);
   - write web/public/remake/<name>.glb and list it in manifest.json with the fit matrix, and
-    build/ai/models/<name>/fit.png: the phone model above, the fitted one below, to check.
+    build/ai/models/<name>/fit.png: the phone model above, the fitted one below, to check;
+    for a model that moves in pieces also poses.png: both in a few poses of the phone animation.
 
 A phone model made of several rigid pieces also gets, per vertex, the piece it moves with
 (`skin`), and one the game draws in several colours gets the new picture recoloured for each.
@@ -203,6 +204,23 @@ def main():
                 # the phone model is several rigid pieces: which one each vertex follows
                 entry['skin'] = fit['skin']
                 entry['bones'] = fit['bones']
+                if fit.get('hidden'):
+                    entry['hidden'] = fit['hidden']  # pieces the model lacks; the game draws the phone's
+                # for checking by eye: both models in a few poses of the phone animation
+                poses = phone_models.poses_of(stem)
+                if poses:
+                    shots = page.evaluate('(o) => window.poseCheck(o)', {
+                        'model': phone_models.b64(phone_models.find(phone)),
+                        'textures': [phone_models.b64(t) for t in files],
+                        'glb': base64.b64encode(small).decode(),
+                        'fit': fit['matrix'], 'skin': fit['skin'], 'poses': poses,
+                    })
+                    if shots:
+                        tiles = [Image.open(io.BytesIO(base64.b64decode(u.split(',')[1]))).convert('RGB') for u in shots]
+                        sheet = Image.new('RGB', (384 * (len(tiles) // 2), 768), 'white')
+                        for i, tile in enumerate(tiles):
+                            sheet.paste(tile, ((i // 2) * 384, (i % 2) * 384))
+                        sheet.save(os.path.join(SRC, name, 'poses.png'))
             extra = []
             if variant:
                 entry['texture'] = os.path.basename(files[0])  # this model is for that texture only
@@ -223,6 +241,7 @@ def main():
             print(f"{name}: {'the model of ' + source + ', ' if source != name else ''}"
                   f"turned {fit['turn'] * 90} degrees{' and mirrored' if fit.get('mirrored') else ''} (difference {fit['score']:.1f}), "
                   f"{'moves in ' + str(fit['bones']) + ' pieces, ' if fit.get('skin') else ''}"
+                  f"{'hidden pieces ' + str(fit['hidden']) + ', ' if fit.get('hidden') else ''}"
                   f"{str(len(extra)) + ' recolour(s), ' if extra else ''}"
                   f"{len(glb) // 1024} KB -> {len(small) // 1024} KB; check {os.path.join(SRC, name, 'fit.png')}")
         browser.close()

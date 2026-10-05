@@ -220,14 +220,17 @@ class Figure3D {
     const model = this.model;
     const table = this.action && this.action.table.actions[this.actionIndex] ? this.action.table : null;
     poseModel(model, table, this.actionIndex, this.time, this.posed);
+    let remadeNode = null; // the remade model standing in for this figure, if any
+    let only = null; // phone pieces still to be drawn with it (bones), if any
+    let slot = -1;
     if (this.remade && remake.enabled && this.blendMode === BLEND_NORMAL && this.transparency >= 100) {
       // drawn under the same model matrix; one copy per draw of this figure in a frame
       const remade = remake.pick(this.remade, this.textures[0]?.key);
       if (remade) {
         let copies = this.remadeInstances.get(remade);
         if (!copies) this.remadeInstances.set(remade, (copies = []));
-        const node = copies[this.used] || (copies[this.used] = remake.instance(remade));
-        this.used++;
+        slot = this.used++;
+        const node = copies[slot] || (copies[slot] = remake.instance(remade));
         remake.stats.drawn++;
         const copy = node.userData.copy;
         if (copy) {
@@ -245,12 +248,16 @@ class Figure3D {
           copy.pose(this.poseBones, this.remadeRest);
           remake.stats.skinned++;
         }
-        return [node];
+        // pieces the remade model does not have (hidden inside it when it was made, like a
+        // pilot under a hatch) are still the phone's own, drawn with it
+        if (!remade.hidden) return [node];
+        remadeNode = node;
+        only = remade.hidden;
       }
     }
     const pattern = table ? getActionPattern(table, this.actionIndex, this.time, this.pattern) : this.pattern;
-    const instance = this.instances[this.used] || (this.instances[this.used] = this.#createInstance());
-    this.used++;
+    if (slot < 0) slot = this.used++;
+    const instance = this.instances[slot] || (this.instances[slot] = this.#createInstance());
     // drawn in the previous frame too: keep that pose, so in-between poses can be shown
     const tween = instance.frame === frameClock.frame - 1;
     instance.frame = frameClock.frame;
@@ -273,7 +280,7 @@ class Figure3D {
       if (tween) prev.set(pos);
       for (let t = 0, n = b.numTriangles; t < n; t++) {
         const mask = filter ? b.trianglePattern[t] : 0;
-        const show = (mask & pattern) === mask;
+        const show = (mask & pattern) === mask && (!only || only.has(model.vertexBone[cv[t * 3]]));
         // a triangle that just appeared or disappeared has no previous pose to move from
         const fresh = !tween || shown[t] !== (show ? 1 : 0);
         shown[t] = show ? 1 : 0;
@@ -351,6 +358,7 @@ class Figure3D {
         out.push(outline);
       }
     }
+    if (remadeNode) return [remadeNode, ...out];
     if (this.role && legends2.active) {
       // hand the pose to the replacement; it draws these meshes itself if it cannot use them
       const action = table ? table.actions[this.actionIndex] : null;

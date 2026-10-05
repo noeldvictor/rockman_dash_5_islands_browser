@@ -181,6 +181,15 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
   (`SkinnedCopy`, detached bind mode) whose bones are set to `pose * rest^-1` of the phone
   bones (`figure.js` computes them with `computeBoneMatrices`), with the previous frame's pose
   kept for interpolation; such models are cel-shaded and outlined like the phone's characters.
+  A piece that cannot be seen from outside in the rest pose (`visiblePieces`: each piece drawn
+  in its own colour from six sides; e.g. the pilot under an enemy's hatch) is not in the
+  pictures the model was made from: no vertex follows it (`hidden` in the manifest) and the
+  game draws the phone's own triangles for it next to the remade model. The installer writes
+  `poses.png` (the phone model and the remade one in the same poses of the phone animation:
+  `poseCheck`; enemy and boss animations are one file per action, `<e|b><NN>_<action>_<part>.mtr`)
+  so the skinning can be judged without reaching the model in the game. Known limit: the skin
+  is one connected surface, so where a part swings far from its neighbour (a hatch opening)
+  the surface between them stretches.
 - One model in several colours: the installer recolours the remade picture for each further
   texture of the phone model (`recolour`: per hue, the turn and the change of saturation and
   value between the two phone textures, applied in proportion to a texel's saturation), as

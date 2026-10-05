@@ -12,7 +12,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { parseMBAC, parseMTRA, poseModel, getActionPattern } from '../formats/mbac.js';
+import { parseMBAC, parseMTRA, poseModel, getActionPattern, evaluateAction, computeBoneMatrices } from '../formats/mbac.js';
 import { decodeBMP8 } from '../formats/bmp.js';
 
 const bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -225,7 +225,10 @@ window.fitGlb = async (options) => {
   // a phone model made of several rigid pieces: which piece each new vertex moves with
   const model = parseMBAC(bytes(options.model));
   best.bones = model.numBones;
-  if (model.numBones > 1) best.skin = skinOf(model, scene);
+  if (model.numBones > 1) {
+    best.skin = skinOf(model, scene);
+    best.hidden = skinOf.hidden;
+  }
   const views = { views: [[28, 12], [208, 12]], size: options.size ?? 512 };
   best.pictures = [...shoot(phone, views), ...shoot(holder, views)];
   return best;
@@ -285,6 +288,46 @@ function distance2(p, a, b, c) {
  * @returns {{bones: string, weights: string}[]} per mesh, in traverse order: two bone indices
  *          per vertex and the first one's weight (0..255), base64
  */
+let idRenderer = null;
+
+/**
+ * The pieces of a phone model that can be seen from outside in its rest pose. Each piece is
+ * drawn in its own flat colour, from six sides, and the colours that reach the picture counted.
+ * @param {Map<number, number[][][]>} pieces  bone -> triangles
+ */
+function visiblePieces(pieces, bounds) {
+  const size = 256;
+  idRenderer ??= new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+  idRenderer.setPixelRatio(1);
+  idRenderer.setSize(size, size, false);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0, 0, 1);
+  for (const [bone, tris] of pieces) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(2), 3));
+    const m = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+    m.color.setRGB((bone + 1) / 255, 0, 0, THREE.SRGBColorSpace);
+    scene.add(new THREE.Mesh(g, m));
+  }
+  const centre = [0, 1, 2].map((k) => (bounds.min[k] + bounds.max[k]) / 2);
+  const half = Math.hypot(...[0, 1, 2].map((k) => bounds.max[k] - bounds.min[k])) / 2 || 1;
+  const camera = new THREE.OrthographicCamera(-half, half, half, -half, 0.01, half * 8);
+  const gl = idRenderer.getContext();
+  const count = new Map();
+  for (const [dir, up] of [[[0, 0, 1], [0, 1, 0]], [[0, 0, -1], [0, 1, 0]], [[1, 0, 0], [0, 1, 0]], [[-1, 0, 0], [0, 1, 0]], [[0, 1, 0], [0, 0, -1]], [[0, -1, 0], [0, 0, 1]]]) {
+    camera.position.set(centre[0] + dir[0] * half * 3, centre[1] + dir[1] * half * 3, centre[2] + dir[2] * half * 3);
+    camera.up.set(...up);
+    camera.lookAt(...centre);
+    idRenderer.render(scene, camera);
+    const px = new Uint8Array(size * size * 4);
+    gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 2] === 0 && px[i] > 0) count.set(px[i] - 1, (count.get(px[i] - 1) ?? 0) + 1);
+    }
+  }
+  return new Set([...count].filter(([, n]) => n >= 12).map(([bone]) => bone));
+}
+
 function skinOf(model, scene) {
   const P = model.positions;
   const pieces = new Map(); // bone -> triangles [a, b, c]
@@ -296,6 +339,14 @@ function skinOf(model, scene) {
       pieces.get(bone).push(corner.map((i) => [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]]));
     }
   }
+  // A piece that cannot be seen in the rest pose (a pilot under a closed hatch, a part folded
+  // away inside the body) is not in the pictures the model was made from: no vertex may
+  // follow it, or the skin is pulled out of shape when it appears. The game keeps drawing the
+  // phone's own piece for it.
+  const seen = visiblePieces(pieces, model.bounds);
+  const hidden = [...pieces.keys()].filter((bone) => !seen.has(bone));
+  if (hidden.length < pieces.size) for (const bone of hidden) pieces.delete(bone);
+  skinOf.hidden = hidden.length < pieces.size + hidden.length ? hidden : [];
   const blend = (model.bounds.max[1] - model.bounds.min[1]) * 0.03; // width of a joint
   const b64 = (u8) => { let text = ''; for (let i = 0; i < u8.length; i += 0x8000) text += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(text); };
   const out = [];
@@ -324,6 +375,65 @@ function skinOf(model, scene) {
   });
   return out;
 }
+
+/**
+ * Check of the skinning (see skinOf): the phone model and the fitted remade model, both in
+ * the same poses of the phone animation, side by side. The remade model is posed here in plain
+ * JavaScript the way the game's renderer does it on the graphics card: every vertex by
+ * `pose * rest^-1` of its two phone bones.
+ * @param {object} options  model, textures, glb, fit (matrix), skin (from fitGlb),
+ *                          poses: [{ action: base64 action table, index, where: 0..1 }, ...]
+ * @returns {Promise<string[]>} per pose: the phone model, then the remade one (PNG data URLs)
+ */
+window.poseCheck = async (options) => {
+  const model = parseMBAC(bytes(options.model));
+  const rest = computeBoneMatrices(model, null, 0, new Float32Array(model.numBones * 12));
+  const matrix = (src, i) => new THREE.Matrix4().set(...src.subarray(i * 12, i * 12 + 12), 0, 0, 0, 1);
+  const restInverse = Array.from({ length: model.numBones }, (_, i) => matrix(rest, i).invert());
+  const scene = await glbGroup(options.glb);
+  const holder = new THREE.Group();
+  holder.add(scene);
+  holder.matrixAutoUpdate = false;
+  holder.matrix.fromArray(options.fit);
+  holder.updateMatrixWorld(true);
+  // every mesh baked into phone model space, with its vertices' bones and weights
+  const meshes = [];
+  let index = 0;
+  scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const skin = options.skin[index++];
+    const geometry = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    meshes.push({ geometry, base: geometry.attributes.position.array.slice(), bones: bytes(skin.bones), weights: bytes(skin.weights), material: o.material });
+  });
+  const posed = new THREE.Group();
+  for (const m of meshes) posed.add(new THREE.Mesh(m.geometry, m.material));
+  const out = [];
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  for (const { action: file, index: actionIndex = 0, where = 0.5 } of options.poses) {
+    const table = parseMTRA(bytes(file));
+    const action = table.actions[actionIndex];
+    if (!action || !action.boneTracks.length) continue;
+    const frame = Math.floor(action.maxFrame * where);
+    const phone = phoneGroup({ ...options, action: file, actionIndex, frame });
+    const pose = computeBoneMatrices(model, evaluateAction(action, frame), action.boneTracks.length, new Float32Array(model.numBones * 12));
+    const move = restInverse.map((inverse, i) => matrix(pose, i).multiply(inverse));
+    for (const m of meshes) {
+      const p = m.geometry.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const w = m.weights[i] / 255;
+        a.fromArray(m.base, i * 3).applyMatrix4(move[m.bones[i * 2]]);
+        b.fromArray(m.base, i * 3).applyMatrix4(move[m.bones[i * 2 + 1]]);
+        p.setXYZ(i, a.x * w + b.x * (1 - w), a.y * w + b.y * (1 - w), a.z * w + b.z * (1 - w));
+      }
+      p.needsUpdate = true;
+      m.geometry.boundingSphere = null;
+      m.geometry.boundingBox = null;
+    }
+    const view = { views: [[35, 14]], size: options.size ?? 384 };
+    out.push(shoot(phone, view)[0], shoot(posed, view)[0]);
+  }
+  return out;
+};
 
 window.modelInfo = (options) => {
   const m = parseMBAC(bytes(options.model));
