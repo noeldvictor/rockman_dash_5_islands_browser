@@ -53,10 +53,14 @@ It tells you what it is doing at each step:
 The game opens at <http://localhost:5173/>. Pick a variant, then:
 
 - **F1** opens the settings menu: widescreen, 60 fps, cel shading, controls and so on.
-- A controller works straight away: left stick moves, right stick looks, press both sticks in
-  for the settings menu.
-- Keyboard: arrows or WASD to move, Space jump, Z shoot, Enter confirm, Q and E for the two
-  phone soft keys (Map and Items).
+- A controller works straight away: left stick moves, right stick looks, A jumps, X or the
+  right trigger shoots, the left trigger locks on, Select opens the map and Start the items.
+  In menus A confirms and B goes back. The labels under the game show which button does what.
+  Press both sticks in for the settings menu.
+- Keyboard: arrows or WASD to move, Space jump, Z shoot, Enter to talk or confirm, Q for the
+  map, E for the items, Backspace or Esc to go back.
+- **Save state** and **Load state** under the game freeze a moment in a mission and bring it
+  back. They are lost when you close the page; the game's own saves are kept.
 
 Next time, just run:
 
