@@ -233,6 +233,10 @@ export class Primitive3D {
 
 // ---- renderer ----------------------------------------------------------------------------------
 
+// near and far plane of the mission's 3D view: setPerspectiveView(1, 300, 60) in bp
+const MISSION_NEAR = 1;
+const MISSION_FAR = 300;
+
 export class G3D {
   /** @param {import('./screen.js').Screen} screen */
   constructor(screen) {
@@ -246,7 +250,7 @@ export class G3D {
     this.projection = { kind: 'perspective', near: 1, far: 1000, angle: 60, w: 240, h: 240 };
     this.queue = [];
     this.touched = new Set();
-    /** Field of view option: factor on the angle of full-screen perspective views. */
+    /** Field of view option: factor on the angle of the mission's full-screen perspective view. */
     this.fovScale = 1;
   }
 
@@ -305,6 +309,10 @@ export class G3D {
     const p = this.projection;
     const [x, y, w, h] = this.clip;
     if (this.fovScale === 1 || p.kind !== 'perspective' || !(x <= 0 && y <= 0 && w >= 240 && h >= 240)) return p;
+    // Only the mission's own view, which is the one projection the game sets up with these
+    // planes (bp). Cutscenes and menus keep the framing they were made for: they park models
+    // just outside it, and place characters over 2D pictures.
+    if (p.near !== MISSION_NEAR || p.far !== MISSION_FAR) return p;
     return { ...p, angle: Math.min(150, p.angle * this.fovScale) };
   }
 

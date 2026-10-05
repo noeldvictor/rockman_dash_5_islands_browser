@@ -276,8 +276,12 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
   (`loadFromPack`), keeping the game's own alpha, enlarged; until it arrives the HD version shows.
   The textures embedded in the installed Legends 2 models are in the pack too, listed by model
   name and image index; `legends2.js` registers each with that name and the picture is swapped
-  whole (`loadNamed`). Field of view (`G3D.fovScale` scales the angle of full-screen perspective
-  views; `ax.java` widens its culling frustum to match through `Host.fov`). Blurred side bars
+  whole (`loadNamed`). Field of view (`G3D.fovScale` scales the angle of the mission's full-screen
+  perspective view, recognised by its planes, near 1 and far 300, which only `bp` sets;
+  `ax.java` widens its culling frustum to match through `Host.fov`. Cutscenes and menus keep
+  the game's 60 degrees: they stand characters over 2D pictures and leave unused models parked
+  just outside the frame, upside down in their y-down identity view, and a wider view in
+  widescreen brought those into the picture during fades). Blurred side bars
   (`Screen.#fillSideBars`: in widescreen, 2D-only screens get an enlarged, blurred, dimmed copy
   of the picture in the bars instead of black). Frame rate (see Rendering model). And three
   effects in `lighting.js`, all off by default:
