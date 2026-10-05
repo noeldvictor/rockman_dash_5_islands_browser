@@ -12,6 +12,10 @@ lay just outside them, so the result still repeats without a seam. It is written
 original size to web/public/redraw/<key>.png with a manifest in the format of the AI texture
 pack (tools/ai/textures.py); the host shows it under Settings > Video > Textures > AI redrawn.
 
+The model does not always keep to the picture: plain gravel has come back as cobblestones, a
+rough wall as a carved maze. Look at build/ai/textures/<name>/compare.png and throw such ones
+out with `restyle.py --drop <name> ...`; the upscaled texture is shown for them instead.
+
 Work files and the Tripo tasks are kept in build/ai/textures/<name>/, and a task that was paid
 for is not started twice. Costs credits (about 10 per texture with banana2). Everything written
 is derived from the game's art: web/public/redraw/ is git-ignored.
@@ -102,6 +106,8 @@ def restyle(name, args, manifest):
     hole = indices == 0
     keyed = bool(hole.any()) and not hole.all()
     key = f'{rgb.shape[1]}x{rgb.shape[0]}:{zlib.crc32(rgb.tobytes()) & 0xffffffff}'
+    if (WORK / name / 'rejected').exists() and not args.force:
+        return  # looked at and thrown out (--drop): the upscaled texture is used for it
     if key in manifest['textures'] and not args.force:
         return  # this picture is done (the same one may go by several names)
     folder = WORK / name
@@ -136,6 +142,9 @@ def main():
     ap.add_argument('names', nargs='*')
     ap.add_argument('--area')
     ap.add_argument('--maps', action='store_true', help='every map texture of the game (a<island>_<n>.bmp)')
+    ap.add_argument('--drop', action='store_true',
+                    help='throw the redraws of the named textures out (the model invented things): they are '
+                         'taken off the manifest and not made again')
     ap.add_argument('--image-model', default='banana2')
     ap.add_argument('--force', action='store_true')
     args = ap.parse_args()
@@ -149,6 +158,22 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / 'manifest.json'
     manifest = json.loads(path.read_text()) if path.exists() else {'model': args.image_model, 'scale': SCALE, 'textures': {}, 'models': {}}
+    if args.drop:
+        for name in args.names:
+            found = find(name)
+            if not found:
+                continue
+            indices, palette = decode_bmp(found.read_bytes())
+            rgb = palette[indices]
+            key = f'{rgb.shape[1]}x{rgb.shape[0]}:{zlib.crc32(rgb.tobytes()) & 0xffffffff}'
+            entry = manifest['textures'].pop(key, None)
+            (WORK / name).mkdir(parents=True, exist_ok=True)
+            (WORK / name / 'rejected').write_text('')
+            if entry:
+                (OUT / entry['file']).unlink(missing_ok=True)
+            print(f"{name}: {'dropped' if entry else 'was not in the pack'}")
+        path.write_text(json.dumps(manifest))
+        return
     before = tripo.balance()
     for name in names:
         try:
