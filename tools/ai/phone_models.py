@@ -137,9 +137,11 @@ def main():
             path = find(name)
             options = {'model': b64(path), 'textures': [b64(t) for t in files],
                        'views': VIEWS[args.views], 'size': 256 if args.views == 'sheet' else args.size}
+            # a character's face is one of several polygon groups, chosen by its animation:
+            # without one the head is drawn with no face at all
             action = find(name.split('.')[0] + '.mtr') or find(name.split('.')[0] + '.mtra')
-            if action and name in ('rock.mba', 'roll.mba', 'toron.mba', 'tisel.mba', 'kobun.mba'):
-                options.update(action=b64(action), actionIndex=0, frame=0)  # for the default face
+            if action and info['patterns'] > 1:
+                options.update(action=b64(action), actionIndex=0, frame=0)
             try:
                 urls = page.evaluate('(o) => window.renderPhoneModel(o)', options)
                 info = page.evaluate('(o) => window.modelInfo(o)', {'model': options['model']})
