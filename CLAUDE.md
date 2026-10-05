@@ -449,7 +449,12 @@ Keep this section current.
 - Legends 2 replacement: MegaMan, Roll, Tron and Teisel are replaced in the New Game intro
   cutscenes and the in-game player (assembled from parts) is replaced during play; poses match
   the phone models' at the same frame. The Servbot mapping has not been seen in a test. The
-  phone models' face patterns (closed eyes, expressions) have no Legends 2 counterpart. Only
+  phone models' face patterns (closed eyes, expressions) are not carried over yet: the Legends 2
+  faces stay neutral. The data is there — a Legends 2 face is a separate sub-mesh (`face`,
+  `mouth`) textured from a sheet with one cell per expression (MegaMan's, `PL00T` e002, has
+  seven 64-pixel-wide cells: neutral, narrowed, closed, grin, crying, startled, shouting) — so
+  it needs a table from each phone figure's pattern bits to a cell, and a UV shift on the face
+  mesh. Only
   models are hooked up; the extracted Legends 2 textures, music and sound effects
   (`build/mml2/`) are unused: the effects are unnamed samples, so mapping them to the phone's 25
   effects (`se00`–`se24`) has to be done by ear.
