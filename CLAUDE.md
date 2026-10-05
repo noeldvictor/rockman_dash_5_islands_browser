@@ -69,7 +69,7 @@ web/src/host/*  (three.js renderer, Canvas2D, input, storage, audio) ◄──�
 | `package_html.sh`, `tools/package/single_html.mjs` | Single-file build: `vite build`, then every file the page would fetch is embedded as base64 in `<script type="application/x-rdash-file" data-path>` elements and the app module is inlined. A shim answers `fetch()` for those paths from the page (anything else under the page's folder is a 404, which is how optional packs read as absent) and defines `rdashResolve(url, inline)`: a `blob:` URL for the game's `import()`, a `data:` URL for the audio worklet (a page opened from disk has an opaque origin and worklets refuse `blob:` there). Sizes: 13 MB `--small`, 41 MB default (with the SoundFont set), 139 MB `--full` (AI textures + Legends 2). Verified from `file://` in headless Chrome |
 | `original/` | Game inputs, **not in the repository** (git-ignored; supply your own dump): `<variant>/RockmanDASH.jar`, `.jam`, `.sp` (scratchpad) for `localized` and `delocalized`, and `sdcard/RDDATA*.BIN` |
 | `runtime/` | Maven project: DoJa API reimplementation + TeaVM build (`./mvnw`, JDK 11+) |
-| `web/` | Vite app. `src/host/` = host services, `src/formats/` = file-format parsers (no three.js imports), `src/mods/` = optional asset replacement |
+| `web/` | Vite app. `src/host/` = host services, `src/formats/` = file-format parsers (no three.js imports), `src/mods/` = optional asset replacement, `modelview.html` + `src/tools/` = a development page the `tools/ai/` scripts drive (not in the production build; it is what the `meshoptimizer` dev dependency is for) |
 | `tools/build.sh` | Patch + recompile both variants and copy data into `web/public/` |
 | `.claude/skills/rendered-docs/` | Skill: fetch web pages that need JavaScript to render (the Tripo API docs) as text with Playwright Chromium from `.venv/` (git-ignored; set-up in its `SKILL.md`). Output in `build/docs/<host>/` |
 | `tools/rfc/` | Room data (`.rfc`), object collision (`.roc`) and cutscene (`.rde`) dumps and checks; `widen_check.mjs` tests the area widening |
@@ -163,7 +163,11 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
   texture locally rather than paying for three models (not written yet).
 - Into the game: `tools/ai/install_remake.py` fits a model to the phone model (same bounding
   box; of the four upright orientations the one whose pictures from three sides differ least;
-  `fit.png` shows both for checking), shrinks the texture to 1024, and writes
+  `fit.png` shows both for checking), shrinks the texture to 1024 (JPEG), brings the mesh down
+  to `--faces` triangles (5,000 by default, with meshoptimizer's simplifier in
+  `simplifyGlb`; measured on the Retroid Pocket 3+: Valley Road with the 9,000-triangle
+  originals was 167 thousand triangles a picture with outlines and ran at 39 pictures a second
+  where 60 were asked for, at 5,000 it is 104 thousand and holds 60), and writes
   `web/public/remake/<name>.glb` plus `manifest.json` (phone file -> list of `{url, fit,
   texture?}`). `web/src/mods/remake.js` loads that at start; `figure.js` draws the remade model
   under the game's own model matrix when the phone model is rigid (one bone), opaque, and the
@@ -213,7 +217,7 @@ triangles, crisp flat colours). Characters' face expressions: to be decided when
   picture, mid-stride). In the game after the full pass (2026-10-05): 34 phone models, 59
   entries with recolours — props `o00`-`o05`, `o07` (three doors), `o09`, `o10`, `o13_1`,
   `o20`; every enemy `e00`-`e08` with `e01_1` and `e06_1`; the bosses `b00`-`b03` with the
-  parts `b02_1`-`b02_5`; the Flutter; Data and Barrell. About 34 MB under
+  parts `b02_1`-`b02_5`; the Flutter; Data and Barrell. About 29 MB under
   `web/public/remake/`. Of the 4,805 credits about 325 are left.
   `phone_models.py` renders a model that has face patterns with its animation's first frame,
   or it has no face at all (Data and Denise were first made faceless that way).

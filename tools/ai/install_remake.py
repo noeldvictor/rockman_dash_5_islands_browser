@@ -8,7 +8,10 @@ For every model that has been remade (build/ai/models/<name>/model.glb, see rema
 
   - fit it to the phone model it replaces (same bounding box; which way it faces is found by
     comparing pictures of the two from three sides, in web/modelview.html);
-  - shrink its texture (Tripo's are 4096x4096; the handhelds want far less);
+  - shrink its texture (Tripo's are 4096x4096; the handhelds want far less) and bring it down
+    to --faces triangles (5,000 by default: on a Retroid Pocket 3+ a scene with six of the
+    9,000-triangle originals, drawn twice for their outlines, ran at 39 pictures a second
+    where 60 were asked for);
   - write web/public/remake/<name>.glb and list it in manifest.json with the fit matrix, and
     build/ai/models/<name>/fit.png: the phone model above, the fitted one below, to check;
     for a model that moves in pieces also poses.png: both in a few poses of the phone animation.
@@ -152,6 +155,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('names', nargs='*')
     ap.add_argument('--texture', type=int, default=1024)
+    ap.add_argument('--faces', type=int, default=5000,
+                    help='triangle budget per model (0 = as Tripo made it, about 9,000)')
     ap.add_argument('--url', default='http://localhost:5173/modelview.html')
     args = ap.parse_args()
     names = args.names or sorted(n for n in os.listdir(SRC) if os.path.exists(os.path.join(SRC, n, 'model.glb')))
@@ -195,6 +200,12 @@ def main():
                 continue
             glb = open(os.path.join(SRC, source, 'model.glb'), 'rb').read()
             small = shrink(glb, args.texture)
+            if args.faces:
+                # fewer triangles: a handheld draws several of these at once, each twice with outlines
+                fewer = page.evaluate('(o) => window.simplifyGlb(o)',
+                                      {'glb': base64.b64encode(small).decode(), 'triangles': args.faces})
+                if fewer:
+                    small = shrink(base64.b64decode(fewer), args.texture)
             stem, variant = phone_models.split(name)
             info = page.evaluate('(o) => window.modelInfo(o)', {'model': phone_models.b64(phone_models.find(phone))})
             sets = phone_models.texture_sets(phone, info['textures'])
@@ -254,7 +265,8 @@ def main():
                     extra.append({**entry, 'texture': os.path.basename(other_files[0]), 'map': f'{stem}@{other}.jpg'})
             entries = [e for e in manifest['models'].get(phone, []) if e['url'] != entry['url']]
             manifest['models'][phone] = entries + [entry] + extra
-            print(f"{name}: {'the model of ' + source + ', ' if source != name else ''}"
+            triangles = page.evaluate('(o) => window.glbInfo(o)', {'glb': base64.b64encode(small).decode()})['triangles']
+            print(f"{name}: {'the model of ' + source + ', ' if source != name else ''}{triangles:.0f} triangles, "
                   f"turned {fit['turn'] * 90} degrees{' and mirrored' if fit.get('mirrored') else ''} (difference {fit['score']:.1f}), "
                   f"{'moves in ' + str(fit['bones']) + ' pieces, ' if fit.get('skin') else ''}"
                   f"{'hidden pieces ' + str(fit['hidden']) + ', ' if fit.get('hidden') else ''}"

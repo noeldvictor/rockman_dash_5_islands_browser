@@ -12,6 +12,8 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { MeshoptSimplifier } from 'meshoptimizer';
 import { parseMBAC, parseMTRA, poseModel, getActionPattern, evaluateAction, computeBoneMatrices } from '../formats/mbac.js';
 import { decodeBMP8 } from '../formats/bmp.js';
 
@@ -471,6 +473,67 @@ window.poseCheck = async (options) => {
     out.push(shoot(phone, view)[0], shoot(posed, view)[0]);
   }
   return out;
+};
+
+/**
+ * A .glb with fewer triangles (meshoptimizer's simplifier: edges are collapsed where the shape
+ * and the texture mapping change least; unused vertices are removed).
+ * @param {object} options  glb (base64), triangles: the budget for the whole file
+ * @returns {Promise<string|null>} the new .glb, base64 (its pictures as PNG), or null if it
+ *          is within the budget already
+ */
+window.simplifyGlb = async (options) => {
+  await MeshoptSimplifier.ready;
+  const gltf = await new GLTFLoader().parseAsync(bytes(options.glb).buffer, '');
+  const meshes = [];
+  gltf.scene.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const count = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+  const total = meshes.reduce((n, o) => n + count(o.geometry), 0);
+  if (total <= options.triangles) return null;
+  for (const o of meshes) {
+    const g = o.geometry;
+    const position = g.attributes.position;
+    const n = position.count;
+    const index = g.index ? Uint32Array.from(g.index.array) : Uint32Array.from({ length: n }, (_, i) => i);
+    const xyz = new Float32Array(n * 3);
+    const uv = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      xyz[i * 3] = position.getX(i);
+      xyz[i * 3 + 1] = position.getY(i);
+      xyz[i * 3 + 2] = position.getZ(i);
+      if (g.attributes.uv) {
+        uv[i * 2] = g.attributes.uv.getX(i);
+        uv[i * 2 + 1] = g.attributes.uv.getY(i);
+      }
+    }
+    const target = Math.floor((count(g) * options.triangles) / total) * 3;
+    const [kept] = MeshoptSimplifier.simplifyWithAttributes(index, xyz, 3, uv, 2, [0.5, 0.5], null, target, 0.05);
+    const [remap, unique] = MeshoptSimplifier.compactMesh(kept);
+    const out = new THREE.BufferGeometry();
+    for (const [name, attribute] of Object.entries(g.attributes)) {
+      const size = attribute.itemSize;
+      const array = new attribute.array.constructor(unique * size);
+      for (let i = 0; i < n; i++) {
+        const to = remap[i];
+        if (to === 0xffffffff) continue;
+        for (let c = 0; c < size; c++) array[to * size + c] = attribute.getComponent(i, c);
+      }
+      // getComponent() gives the denormalised value: keep such attributes as floats
+      out.setAttribute(name, attribute.normalized
+        ? new THREE.BufferAttribute(Float32Array.from({ length: unique * size }, (_, k) => {
+          const i = remap.indexOf(Math.floor(k / size));
+          return attribute.getComponent(i, k % size);
+        }), size)
+        : new THREE.BufferAttribute(array, size));
+    }
+    out.setIndex(new THREE.BufferAttribute(kept, 1));
+    o.geometry = out;
+  }
+  const glb = await new GLTFExporter().parseAsync(gltf.scene, { binary: true });
+  const u8 = new Uint8Array(glb);
+  let text = '';
+  for (let i = 0; i < u8.length; i += 0x8000) text += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+  return btoa(text);
 };
 
 window.modelInfo = (options) => {
