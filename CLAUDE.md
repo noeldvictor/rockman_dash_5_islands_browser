@@ -297,7 +297,7 @@ Items marked (DLL) were confirmed by disassembling NTT's reference engine `micro
 - The game's Select key confirms, talks, opens and presses, and during play it also fires the
   buster (mask `0x100000 | g[1]` in `av`: a new press first calls `k.d()`, which starts the
   events in reach, and shoots if there were none; held, it keeps shooting — the game auto-fires
-  on its own). The port separates the two at the input layer (`Input.#syncSelect`): while
+  on its own). The port separates the two at the input layer (`Input.#sync`): while
   "playing" a held Select is not passed to the game, whatever it comes from (keyboard,
   controller, touch), so confirming never shoots; the buster key keeps both roles. "Playing"
   (`Input.#playing`) = the follow camera is reporting, the frame has no text on it
