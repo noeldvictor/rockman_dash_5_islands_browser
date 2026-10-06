@@ -105,7 +105,7 @@ controller); none change the game's rules, and with everything off you get the p
 - **AI-remade models and textures (optional)** — with your own Tripo API key, scripts rebuild
   the game's props, enemies and bosses as modern low-poly models that still move by the phone
   game's animation, and redraw map textures and skies in a clean cel-shaded look
-  (see [below](#optional-ai-remade-models-and-textures)).
+  (pictures [below](#optional-ai-remade-models-and-textures)).
 - **Roomier areas (experiment)** — stretches every area sideways so there is more room to
   move, while everything in it keeps its size; doors widen with their doorways. Untested area
   by area: jumps and timing were made for the original size.
@@ -273,6 +273,18 @@ it the phone's own models are used, and everything else works the same.
 
 Off unless you make the files yourself. Nothing generated is in this
 repository: it is all derived from the game.
+
+| The phone's own models and textures | Remade models, redrawn textures, cel shading, 3D sky |
+|---|---|
+| ![The same view with the phone's own models](docs/remade-before.jpg) | ![The same view with the remade models](docs/remade-after.jpg) |
+
+Each phone model next to its remake, from the same side:
+
+![Phone models next to their remakes: enemies, bosses, the Flutter, props and two side characters](docs/remade-models.jpg)
+
+| | |
+|---|---|
+| ![Remade enemies up close](docs/remade-enemies.jpg) | ![Remade enemies and a remade door in a ruin](docs/remade-ruin.jpg) |
 
 - **Models.** `tools/ai/remake.py` renders a phone model from four sides, has an image model
   redraw each picture as clean HD art, and has [Tripo](https://www.tripo3d.ai) build a textured

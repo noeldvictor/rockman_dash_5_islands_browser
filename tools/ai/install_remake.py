@@ -210,11 +210,14 @@ def main():
             info = page.evaluate('(o) => window.modelInfo(o)', {'model': phone_models.b64(phone_models.find(phone))})
             sets = phone_models.texture_sets(phone, info['textures'])
             files = sets.get(variant) if variant else next(iter(sets.values()))
+            # a model with face patterns is compared with its default face on (else it has none)
+            face = (phone_models.find(stem + '.mtr') or phone_models.find(stem + '.mtra')) if info['patterns'] > 1 else None
             fit = page.evaluate('(o) => window.fitGlb(o)', {
                 'model': phone_models.b64(phone_models.find(phone)),
                 'textures': [phone_models.b64(t) for t in files],
                 'glb': base64.b64encode(small).decode(),
                 'mirror': source != name,
+                **({'action': phone_models.b64(face), 'actionIndex': 0, 'frame': 0} if face else {}),
             })
             # phone model above, fitted model below, from two opposite corners: they should agree
             tiles = [Image.open(io.BytesIO(base64.b64decode(u.split(',')[1]))).convert('RGB') for u in fit['pictures']]
